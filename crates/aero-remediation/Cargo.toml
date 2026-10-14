@@ -1,0 +1,20 @@
+[package]
+name = "aero-remediation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aero-protocol = { path = "../aero-protocol" }
+aero-config = { path = "../aero-config" }
+aero-ai-engine = { path = "../aero-ai-engine" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+base64 = { workspace = true }

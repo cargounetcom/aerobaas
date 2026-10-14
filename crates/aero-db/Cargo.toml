@@ -1,0 +1,19 @@
+[package]
+name = "aero-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aero-protocol = { path = "../aero-protocol" }
+aero-config = { path = "../aero-config" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+parking_lot = { workspace = true }

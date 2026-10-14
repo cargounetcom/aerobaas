@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aero-core",
+    "crates/aero-wasm-runtime",
+    "crates/aero-keys",
+    "crates/aero-ai-engine",
+    "crates/aero-mcp-server",
+    "crates/aero-db",
+    "crates/aero-remediation",
+    "crates/aero-skills",
+    "crates/aero-cli",
+    "crates/aero-config",
+    "crates/aero-crypto",
+    "crates/aero-protocol",
+    "crates/aero-auth",
+    "crates/aero-tenancy",
+    "crates/aero-inspector",
+    "crates/aero-chat",
+    "crates/aero-realtime",
+    "crates/aero-metrics",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0"
+authors = ["AeroBaaS Team"]
+repository = "https://github.com/aerobaas/aerobaas"
+
+[workspace.dependencies]
+tokio = { version = "1.40", features = ["full"] }
+axum = { version = "0.7", features = ["ws", "macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+parking_lot = "0.12"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.release.package."*"]
+opt-level = 3

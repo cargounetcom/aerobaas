@@ -1,0 +1,25 @@
+[package]
+name = "aero-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "aero"
+path = "src/main.rs"
+
+[dependencies]
+aero-core = { path = "../aero-core" }
+aero-config = { path = "../aero-config" }
+aero-protocol = { path = "../aero-protocol" }
+aero-skills = { path = "../aero-skills" }
+aero-keys = { path = "../aero-keys" }
+aero-crypto = { path = "../aero-crypto" }
+tokio = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+reqwest = { workspace = true }

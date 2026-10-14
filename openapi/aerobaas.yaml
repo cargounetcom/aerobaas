@@ -1,0 +1,1267 @@
+openapi: 3.1.0
+info:
+  title: AeroBaaS API
+  version: 0.1.0
+  description: |
+    Agent-Native Backend-as-a-Service API.
+    
+    A next-generation serverless backend platform optimized for autonomous AI agents
+    and code isolation. Built with Rust, WebAssembly, and Erlang/OTP.
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.aerobaas.com
+    description: AeroBaaS Cloud
+
+tags:
+  - name: Auth
+    description: User registration, login, JWT tokens, workspace switching
+  - name: Workspaces
+    description: Multi-tenancy, workspace management, member roles, invites
+  - name: Keys
+    description: Keys API 2.0 — scoped API key generation and management
+  - name: Functions
+    description: Wasm serverless function deployment and execution
+  - name: Remediation
+    description: Dependency scanning, auto-patching, compliance logging
+  - name: Skills
+    description: Skill pack management and auto-detect deployment
+  - name: MCP
+    description: Model Context Protocol server for AI agent integration
+  - name: AI
+    description: Embedded AI inference (local SLM, zero latency)
+  - name: Chat
+    description: AI chat with comfort panels
+  - name: Audit
+    description: Realtime audit log and event streaming
+  - name: Metrics
+    description: Wasm sandbox metrics and performance dashboards
+  - name: Inspector
+    description: Request tracing and observability
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: integer
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserPublic'
+        default_workspace:
+          $ref: '#/components/schemas/WorkspaceSummary'
+
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        email_verified:
+          type: boolean
+
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        plan:
+          type: string
+          enum: [free, pro, enterprise, air_gapped]
+        status:
+          type: string
+          enum: [active, suspended, deleted]
+        member_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    WorkspaceSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        plan:
+          type: string
+
+    Role:
+      type: string
+      enum: [owner, admin, manager, user]
+
+    Membership:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/Role'
+        status:
+          type: string
+          enum: [pending, active, revoked, left]
+
+    CreateKeyRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - functions.read
+              - functions.write
+              - functions.list
+              - executions.write
+              - executions.read
+              - databases.read
+              - databases.write
+              - ai.inference
+              - skills.manage
+              - remediation.run
+              - mcp.connect
+              - admin
+        allowed_function_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        credits_limit:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+
+    CreateKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        credits_limit:
+          type: integer
+
+    DeployRequest:
+      type: object
+      required: [name, wasm_bytes, entrypoint]
+      properties:
+        name:
+          type: string
+        wasm_bytes:
+          type: string
+          format: byte
+          description: Base64-encoded Wasm binary
+        entrypoint:
+          type: string
+        memory_limit_mb:
+          type: integer
+        cpu_limit_percent:
+          type: integer
+        timeout_ms:
+          type: integer
+
+    DeployResponse:
+      type: object
+      properties:
+        function_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, in_quarantine, deployed, blocked, disabled]
+        wasm_hash:
+          type: string
+        quarantine_passed:
+          type: boolean
+        remediation_applied:
+          type: boolean
+
+    ExecuteResponse:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        output:
+          type: object
+        duration_ms:
+          type: integer
+        memory_used_mb:
+          type: number
+        credits_consumed:
+          type: integer
+
+    ScanRequest:
+      type: object
+      required: [manifest_type, manifest_content]
+      properties:
+        manifest_type:
+          type: string
+          enum: [package_json, cargo_toml, go_mod, pyproject_toml]
+        manifest_content:
+          type: string
+
+    RemediationResult:
+      type: object
+      properties:
+        scan_result:
+          type: object
+          properties:
+            total_count:
+              type: integer
+            critical_count:
+              type: integer
+            high_count:
+              type: integer
+            vulnerabilities:
+              type: array
+              items:
+                type: object
+                properties:
+                  cve_id:
+                    type: string
+                  package_name:
+                    type: string
+                  severity:
+                    type: string
+                    enum: [low, medium, high, critical]
+                  auto_fixable:
+                    type: boolean
+                  patched_version:
+                    type: string
+                    nullable: true
+        patches_applied:
+          type: array
+          items:
+            type: object
+            properties:
+              package_name:
+                type: string
+              from_version:
+                type: string
+              to_version:
+                type: string
+              cve_ids:
+                type: array
+                items:
+                  type: string
+        blocked:
+          type: boolean
+        compliance_log:
+          type: object
+          properties:
+            log_id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            checks:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  passed:
+                    type: boolean
+                  details:
+                    type: string
+            signature:
+              type: string
+
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        actor_type:
+          type: string
+          enum: [user, ai_agent, system, hazmat_module, remediation_module, erlang_orchestrator]
+        actor_name:
+          type: string
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [info, warning, critical, security]
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+
+    SandboxMetrics:
+      type: object
+      properties:
+        function_id:
+          type: string
+          format: uuid
+        function_name:
+          type: string
+        status:
+          type: string
+          enum: [idle, running, cold_start, quarantine, blocked, crashed]
+        cold_start_ms:
+          type: number
+        execution_duration_ms:
+          type: number
+        memory_used_mb:
+          type: number
+        memory_limit_mb:
+          type: number
+        cpu_percent:
+          type: number
+        invocations_total:
+          type: integer
+        errors_total:
+          type: integer
+        egress_blocked:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    AggregateMetrics:
+      type: object
+      properties:
+        total_sandboxes:
+          type: integer
+        active_sandboxes:
+          type: integer
+        avg_cold_start_ms:
+          type: number
+        p50_cold_start_ms:
+          type: number
+        p95_cold_start_ms:
+          type: number
+        p99_cold_start_ms:
+          type: number
+        avg_memory_mb:
+          type: number
+        max_memory_mb:
+          type: number
+        rps:
+          type: number
+        total_egress_blocked:
+          type: integer
+
+    ChatConversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        model:
+          type: string
+        panel_config:
+          type: object
+        message_count:
+          type: integer
+        tokens_used:
+          type: integer
+
+    ComfortPanel:
+      type: object
+      properties:
+        greeting:
+          type: string
+        user_name:
+          type: string
+          nullable: true
+        mood:
+          type: string
+          enum: [calm, energetic, focused, creative, relaxed]
+        ambient_color:
+          type: string
+        quick_actions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              icon:
+                type: string
+        recent_conversations:
+          type: array
+          items:
+            type: object
+        stats:
+          type: object
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
+
+  /v1/auth/switch-workspace:
+    post:
+      tags: [Auth]
+      summary: Switch active workspace (issues new JWT with workspace context)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_id]
+              properties:
+                workspace_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: New token with workspace context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  workspace:
+                    $ref: '#/components/schemas/WorkspaceSummary'
+                  role:
+                    type: string
+
+  /v1/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List workspaces for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+    post:
+      tags: [Workspaces]
+      summary: Create a new workspace
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                plan:
+                  type: string
+                  enum: [free, pro, enterprise, air_gapped]
+      responses:
+        '200':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+
+  /v1/workspaces/{id}:
+    get:
+      tags: [Workspaces]
+      summary: Get workspace details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+    put:
+      tags: [Workspaces]
+      summary: Update workspace
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                plan:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Workspaces]
+      summary: Delete workspace
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+
+  /v1/workspaces/{id}/members:
+    get:
+      tags: [Workspaces]
+      summary: List workspace members
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Membership'
+                  total:
+                    type: integer
+
+  /v1/workspaces/{id}/invite:
+    post:
+      tags: [Workspaces]
+      summary: Invite a member to workspace
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Invite sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invite_id:
+                    type: string
+                    format: uuid
+                  invite_token:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/workspaces/invite/accept:
+    post:
+      tags: [Workspaces]
+      summary: Accept workspace invitation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite_token]
+              properties:
+                invite_token:
+                  type: string
+      responses:
+        '200':
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+
+  /v1/keys:
+    get:
+      tags: [Keys]
+      summary: List API keys
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      tags: [Keys]
+      summary: Create a scoped API key
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKeyRequest'
+      responses:
+        '200':
+          description: Key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateKeyResponse'
+
+  /v1/keys/{id}:
+    get:
+      tags: [Keys]
+      summary: Get key details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Key details
+    delete:
+      tags: [Keys]
+      summary: Revoke an API key
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Key revoked
+
+  /v1/keys/verify:
+    post:
+      tags: [Keys]
+      summary: Verify an API key (returns scopes and credit balance)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key:
+                  type: string
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  project_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  credits_remaining:
+                    type: integer
+                    nullable: true
+
+  /v1/functions:
+    get:
+      tags: [Functions]
+      summary: List deployed functions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Function list
+    post:
+      tags: [Functions]
+      summary: Deploy a Wasm function
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployRequest'
+      responses:
+        '200':
+          description: Deployment result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResponse'
+
+  /v1/functions/{id}/execute:
+    post:
+      tags: [Functions]
+      summary: Execute a Wasm function
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                function_id:
+                  type: string
+                  format: uuid
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecuteResponse'
+
+  /v1/remediation/scan:
+    post:
+      tags: [Remediation]
+      summary: Scan dependencies for CVE vulnerabilities
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+      responses:
+        '200':
+          description: Scan results
+
+  /v1/remediation/remediate:
+    post:
+      tags: [Remediation]
+      summary: Scan and auto-patch vulnerabilities
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+      responses:
+        '200':
+          description: Remediation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationResult'
+
+  /v1/skills:
+    get:
+      tags: [Skills]
+      summary: List installed skill packs
+      responses:
+        '200':
+          description: Skill pack list
+
+  /v1/deploy/auto-detect:
+    post:
+      tags: [Skills]
+      summary: Auto-detect framework and deploy
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_path]
+              properties:
+                workspace_path:
+                  type: string
+      responses:
+        '200':
+          description: Deployment result
+
+  /v1/mcp:
+    get:
+      tags: [MCP]
+      summary: MCP WebSocket endpoint
+      description: |
+        WebSocket upgrade for Model Context Protocol communication.
+        AI agents connect here to manage DB schema, generate functions,
+        and deploy code.
+      responses:
+        '101':
+          description: WebSocket upgrade
+
+  /v1/ai/generate:
+    post:
+      tags: [AI]
+      summary: Generate text using embedded local SLM
+      description: |
+        Uses the embedded Candle/Mistral.rs engine with Qwen-2.5-Coder-1.5B.
+        Zero network latency — inference happens in-process.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+
+  /v1/chat/conversations:
+    get:
+      tags: [Chat]
+      summary: List conversations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Conversation list
+    post:
+      tags: [Chat]
+      summary: Create a new conversation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                model:
+                  type: string
+                panel_config:
+                  type: object
+      responses:
+        '200':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatConversation'
+
+  /v1/chat/conversations/{id}/send:
+    post:
+      tags: [Chat]
+      summary: Send a message in a conversation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conversation_id, content]
+              properties:
+                conversation_id:
+                  type: string
+                  format: uuid
+                content:
+                  type: string
+                stream:
+                  type: boolean
+      responses:
+        '200':
+          description: Message response with AI reply
+
+  /v1/chat/comfort:
+    get:
+      tags: [Chat]
+      summary: Get comfort panel data
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Comfort panel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComfortPanel'
+
+  /v1/audit/events:
+    get:
+      tags: [Audit]
+      summary: Query audit events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: actor_type
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical, security]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEvent'
+                  total:
+                    type: integer
+                  has_more:
+                    type: boolean
+
+  /v1/audit/stream:
+    get:
+      tags: [Audit]
+      summary: Realtime audit event stream (WebSocket)
+      description: |
+        WebSocket upgrade for real-time audit event streaming.
+        Events from AI agents, users, Hazmat module, and system are pushed live.
+      responses:
+        '101':
+          description: WebSocket upgrade
+
+  /v1/metrics/snapshot:
+    get:
+      tags: [Metrics]
+      summary: Get current Wasm sandbox metrics snapshot
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metrics snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  sandboxes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxMetrics'
+                  aggregate:
+                    $ref: '#/components/schemas/AggregateMetrics'
+
+  /v1/metrics/history:
+    get:
+      tags: [Metrics]
+      summary: Get historical metrics (cold start + memory)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: window_minutes
+          in: query
+          schema:
+            type: integer
+            default: 60
+      responses:
+        '200':
+          description: Metrics history
+
+  /v1/inspector/stats:
+    get:
+      tags: [Inspector]
+      summary: Get request inspector statistics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Inspector stats
+
+  /v1/inspector/traces:
+    get:
+      tags: [Inspector]
+      summary: Query request traces
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Trace list
