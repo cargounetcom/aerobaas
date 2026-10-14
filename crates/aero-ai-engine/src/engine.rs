@@ -9,11 +9,9 @@ pub struct AiEngine {
 
 impl AiEngine {
     pub async fn new(config: AiConfig) -> anyhow::Result<Self> {
-        tracing::info!(
+        tracing::warn!(
             model = %config.model_name,
-            quantization = %config.quantization,
-            gpu = ?config.gpu_backend,
-            "Initializing embedded AI engine"
+            "AI engine is a stub: /v1/ai answers with placeholder text until Phase 2b"
         );
 
         let engine = Self {
@@ -27,11 +25,8 @@ impl AiEngine {
     }
 
     async fn load_model(&self) -> anyhow::Result<()> {
-        tracing::info!("Loading SLM model into memory (stub — wire Candle/mistral.rs here)");
-
+        // No model is loaded yet (Phase 2b connects real models).
         *self.loaded.write() = true;
-
-        tracing::info!("Model loaded, AI engine ready for local inference");
         Ok(())
     }
 
