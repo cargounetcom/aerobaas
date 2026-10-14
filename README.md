@@ -60,7 +60,7 @@ Tools: `list_tables`, `create_table`, `insert_rows`, `query_rows`, `list_functio
 
 * People: `POST /v1/auth/login` → `Authorization: Bearer <token>`. The token carries the active workspace; change it with `POST /v1/auth/switch-workspace` or send `X-Aero-Workspace: <id>`.
 * Agents: `Authorization: Bearer aero_…` or `X-Aero-Key: aero_…`. A key works only in its own workspace and only for its scopes.
-* Public routes: `/health`, `/v1/auth/register|login|refresh`, `/v1/keys/verify`, `GET /api/invites/{token}`.
+* Public routes: `/health`, `/v1/auth/register|login|refresh`, `/v1/keys/verify`, `/v1/info`, `GET /api/invites/{token}`.
 
 ## SovereignBaaS admin API
 

@@ -19,7 +19,7 @@ AeroBaaS is an agent-native backend: workspaces and roles, scoped API keys with 
 ## Rules for every change
 1. `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` must pass.
 2. Behaviour changes need a test in `crates/aero-core/tests/api.rs`. When a roadmap item lands, remove its `#[ignore = "Phase …"]`.
-3. Every route checks authentication and workspace membership/role unless it is explicitly public (`/health`, register, login, refresh, key verify, `GET /api/invites/{token}`). Use the `Ctx` (member or API key) or `UserAuth` extractors in `crates/aero-core/src/auth.rs`; never trust ids from the body for authorisation.
+3. Every route checks authentication and workspace membership/role unless it is explicitly public (`/health`, register, login, refresh, key verify, `/v1/info`, `GET /api/invites/{token}`). Use the `Ctx` (member or API key) or `UserAuth` extractors in `crates/aero-core/src/auth.rs`; never trust ids from the body for authorisation.
 4. Never claim a feature works in docs or UI copy until a test proves it. Mark stubs as stubs.
 5. Keep `README.md` "What is real today" and `ROADMAP.md` checkboxes in sync with the code.
 6. Schema changes are new files in `crates/aero-db/migrations/` (never edit an applied migration).

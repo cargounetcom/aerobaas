@@ -1867,3 +1867,26 @@ async fn rust_example_function() {
     assert_eq!(v["output"]["message"], "Hello, Aurora!");
     assert_eq!(v["logs"], "greeting Aurora\n");
 }
+
+#[tokio::test]
+async fn info_reports_the_mcp_address() {
+    let Some(mut cfg) = config().await else {
+        return;
+    };
+    let t = start(cfg.clone()).await;
+    let (s, v) = req(
+        &t,
+        "GET",
+        "/v1/info",
+        None,
+        None,
+        &[("host", "api.example.com")],
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(v["mcp_url"], "http://api.example.com/v1/mcp");
+    cfg.server.api_url = "https://aero.example.eu".into();
+    let t = start(cfg).await;
+    let (_, v) = call(&t, "GET", "/v1/info", None, None).await;
+    assert_eq!(v["mcp_url"], "https://aero.example.eu/v1/mcp");
+}

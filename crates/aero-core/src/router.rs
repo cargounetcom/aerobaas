@@ -1,6 +1,6 @@
 //! HTTP routes. Every route authenticates the caller and checks workspace membership/role or
 //! API-key scope, except the explicitly public ones: `/health`, `/v1/auth/register`,
-//! `/v1/auth/login`, `/v1/auth/refresh`, `/v1/keys/verify` and `GET /api/invites/{token}`.
+//! `/v1/auth/login`, `/v1/auth/refresh`, `/v1/keys/verify`, `/v1/info` and `GET /api/invites/{token}`.
 
 use std::sync::Arc;
 
@@ -38,6 +38,7 @@ pub fn build_router(app: &Arc<AeroApp>) -> Router {
 
     let v1 = Router::new()
         // Auth
+        .route("/info", get(info))
         .route("/auth/register", post(auth_register))
         .route("/auth/login", post(auth_login))
         .route("/auth/refresh", post(auth_refresh))
@@ -175,6 +176,30 @@ fn cors_layer(origins: &[String]) -> Option<CorsLayer> {
 
 async fn health() -> &'static str {
     "AeroBaaS OK"
+}
+
+/// Public: server name, version and the addresses clients should use.
+async fn info(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Json<Value> {
+    let base = if state.app.config.server.api_url.is_empty() {
+        let host = headers
+            .get("x-forwarded-host")
+            .or_else(|| headers.get(header::HOST))
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("localhost:8080");
+        let proto = headers
+            .get("x-forwarded-proto")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("http");
+        format!("{proto}://{host}")
+    } else {
+        state.app.config.server.api_url.clone()
+    };
+    Json(json!({
+        "name": "AeroBaaS",
+        "version": env!("CARGO_PKG_VERSION"),
+        "api_url": base,
+        "mcp_url": format!("{base}/v1/mcp"),
+    }))
 }
 
 fn forbidden(msg: &str) -> AeroApiError {

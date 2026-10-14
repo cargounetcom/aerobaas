@@ -23,6 +23,9 @@ pub struct ServerConfig {
     pub trust_proxy: bool,
     /// Public URL of the admin, used in invite links (`AERO_PUBLIC_URL`).
     pub public_url: String,
+    /// Public URL of this API, used for the MCP address shown to users (`AERO_API_URL`).
+    /// Empty = derived from the request.
+    pub api_url: String,
     /// How long request-inspector rows are kept (`AERO_INSPECTOR_RETENTION_DAYS`).
     pub inspector_retention_days: u32,
 }
@@ -97,6 +100,7 @@ impl Default for AeroConfig {
                 cors_origins: vec![],
                 trust_proxy: false,
                 public_url: "http://localhost:8080".into(),
+                api_url: String::new(),
                 inspector_retention_days: 30,
             },
             database: DatabaseConfig {
@@ -172,6 +176,9 @@ impl AeroConfig {
         }
         if let Some(v) = env("AERO_PUBLIC_URL") {
             c.server.public_url = v.trim_end_matches('/').to_string();
+        }
+        if let Some(v) = env("AERO_API_URL") {
+            c.server.api_url = v.trim_end_matches('/').to_string();
         }
         if let Some(v) = env("AERO_INSPECTOR_RETENTION_DAYS").and_then(|v| v.parse().ok()) {
             c.server.inspector_retention_days = v;
