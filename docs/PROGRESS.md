@@ -15,6 +15,8 @@ Newest first. One entry per working day: what was done (with proof), what is ope
 | Online | AeroBaaS + its own PostgreSQL on Railway: `https://aerobaas-production.up.railway.app` (`/v1/info`, `/v1/mcp`) | Railway deploy SUCCESS, migrations applied |
 | Admin | SovereignBaaS admin → **Manage → Agent keys**: AeroBaaS sign-in, generate keys (presets, credits, expiry), key shown once with MCP JSON and the Claude Code command, delete | Browser test on a local copy: key works as an MCP server, deleted key is refused, no errors |
 
+| SovereignBaaS installer | `--database postgresql|mariadb|mongodb`, `--vectors`, `--documents`, `--all-databases`; backups per engine; Atlas on a separate `client_app` database | GitHub "Installer matrix": all 6 variations green (sovereign-admin run 38593458993) |
+
 ### Open
 * The Agent keys page has not yet been opened on Railway by a person (the build environment cannot reach railway.app). First check tomorrow.
 * GitHub reports 3 Dependabot alerts (1 high, 2 moderate); not readable with the current token. Probably `legacy/frontend`.
