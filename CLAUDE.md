@@ -7,6 +7,7 @@ AeroBaaS is an agent-native backend: workspaces and roles, scoped API keys with 
 * `ROADMAP.md`: phases, gates and what is done.
 * `docs/IDEAS.md`: every idea from the original specs with keep/change/drop and its phase. **The decisions table there overrides `docs/source/`.**
 * `README.md`: what is real today and what is a stub.
+* `docs/PROGRESS.md`: daily log and the plan for the next day.
 
 ## Fixed decisions (don't change without the owner)
 * Rust only. No Erlang, no Node/Python in the core.
