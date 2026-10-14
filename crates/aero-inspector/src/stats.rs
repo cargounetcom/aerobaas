@@ -1,5 +1,5 @@
-use aero_protocol::inspector::*;
 use crate::collector::TraceCollector;
+use aero_protocol::inspector::*;
 
 pub struct StatsAggregator;
 
@@ -20,7 +20,7 @@ impl StatsAggregator {
         };
 
         let total = traces.len();
-        let errors = traces.iter().filter(|t| t.status >= 400).count();
+        let _errors = traces.iter().filter(|t| t.status >= 400).count();
 
         let mut latencies: Vec<f64> = traces.iter().map(|t| t.duration_ms).collect();
         latencies.sort_by(|a, b| a.partial_cmp(b).unwrap());

@@ -37,7 +37,9 @@ impl AiEngine {
 
     pub async fn generate_text(&self, prompt: &str) -> AeroResult<String> {
         if !*self.loaded.read() {
-            return Err(aero_protocol::AeroError::AiEngine("Model not loaded".into()));
+            return Err(aero_protocol::AeroError::AiEngine(
+                "Model not loaded".into(),
+            ));
         }
 
         tracing::debug!(prompt_len = prompt.len(), "Generating text via local SLM");

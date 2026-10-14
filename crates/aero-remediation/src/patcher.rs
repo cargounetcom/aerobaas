@@ -2,6 +2,12 @@ use aero_protocol::remediation::{Patch, ScanResult};
 
 pub struct Patcher;
 
+impl Default for Patcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Patcher {
     pub fn new() -> Self {
         Self

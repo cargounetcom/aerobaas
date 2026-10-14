@@ -39,8 +39,7 @@ impl FrameworkDetector {
         }
 
         if path.join("pyproject.toml").exists() || path.join("requirements.txt").exists() {
-            let content = std::fs::read_to_string(path.join("pyproject.toml"))
-                .unwrap_or_default();
+            let content = std::fs::read_to_string(path.join("pyproject.toml")).unwrap_or_default();
             if content.contains("fastapi") {
                 return "python-fastapi".into();
             }

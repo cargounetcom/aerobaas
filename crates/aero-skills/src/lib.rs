@@ -1,5 +1,5 @@
-pub mod registry;
 pub mod detector;
+pub mod registry;
 
-pub use registry::SkillRegistry;
 pub use detector::FrameworkDetector;
+pub use registry::SkillRegistry;

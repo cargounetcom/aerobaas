@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use aero_protocol::chat::*;
 use aero_protocol::AeroResult;
 use parking_lot::RwLock;
@@ -50,7 +48,7 @@ impl ChatStore {
                 }
             })
             .collect();
-        summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        summaries.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
         Ok(summaries)
     }
 
@@ -62,7 +60,10 @@ impl ChatStore {
 
     pub async fn store_message(&self, msg: Message) -> AeroResult<()> {
         let mut messages = self.messages.write();
-        messages.entry(msg.conversation_id).or_default().push(msg.clone());
+        messages
+            .entry(msg.conversation_id)
+            .or_default()
+            .push(msg.clone());
 
         let mut convs = self.conversations.write();
         if let Some(conv) = convs.get_mut(&msg.conversation_id) {

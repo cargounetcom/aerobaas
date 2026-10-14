@@ -30,7 +30,11 @@ impl TenancyStore {
         }
     }
 
-    pub async fn create_workspace(&self, ws: Workspace, owner_membership: Membership) -> AeroResult<()> {
+    pub async fn create_workspace(
+        &self,
+        ws: Workspace,
+        owner_membership: Membership,
+    ) -> AeroResult<()> {
         self.workspaces.write().insert(ws.id, ws);
         self.memberships
             .write()
@@ -59,7 +63,11 @@ impl TenancyStore {
             .collect())
     }
 
-    pub async fn update_workspace(&self, id: Uuid, req: UpdateWorkspaceRequest) -> AeroResult<Workspace> {
+    pub async fn update_workspace(
+        &self,
+        id: Uuid,
+        req: UpdateWorkspaceRequest,
+    ) -> AeroResult<Workspace> {
         let mut workspaces = self.workspaces.write();
         let ws = workspaces
             .get_mut(&id)
@@ -92,18 +100,29 @@ impl TenancyStore {
             .unwrap_or_default())
     }
 
-    pub async fn get_membership(&self, workspace_id: Uuid, user_id: Uuid) -> AeroResult<Option<Membership>> {
+    pub async fn get_membership(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> AeroResult<Option<Membership>> {
         Ok(self
             .memberships
             .read()
             .get(&workspace_id)
             .and_then(|members| {
-                members.iter().find(|m| m.user_id == user_id && m.status == MembershipStatus::Active)
+                members
+                    .iter()
+                    .find(|m| m.user_id == user_id && m.status == MembershipStatus::Active)
             })
             .cloned())
     }
 
-    pub async fn update_member_role(&self, workspace_id: Uuid, user_id: Uuid, role: Role) -> AeroResult<()> {
+    pub async fn update_member_role(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+        role: Role,
+    ) -> AeroResult<()> {
         let mut memberships = self.memberships.write();
         if let Some(members) = memberships.get_mut(&workspace_id) {
             for m in members {
@@ -113,7 +132,9 @@ impl TenancyStore {
                 }
             }
         }
-        Err(aero_protocol::AeroError::NotFound("Member not found".into()))
+        Err(aero_protocol::AeroError::NotFound(
+            "Member not found".into(),
+        ))
     }
 
     pub async fn remove_member(&self, workspace_id: Uuid, user_id: Uuid) -> AeroResult<()> {
@@ -126,7 +147,9 @@ impl TenancyStore {
                 }
             }
         }
-        Err(aero_protocol::AeroError::NotFound("Member not found".into()))
+        Err(aero_protocol::AeroError::NotFound(
+            "Member not found".into(),
+        ))
     }
 
     pub async fn create_invite(&self, record: InviteRecord) -> AeroResult<()> {
@@ -140,12 +163,14 @@ impl TenancyStore {
 
     pub async fn accept_invite(&self, token: &str, user_id: Uuid) -> AeroResult<Membership> {
         let mut invites = self.invites.write();
-        let record = invites
-            .remove(token)
-            .ok_or_else(|| aero_protocol::AeroError::NotFound("Invite not found or expired".into()))?;
+        let record = invites.remove(token).ok_or_else(|| {
+            aero_protocol::AeroError::NotFound("Invite not found or expired".into())
+        })?;
 
         if record.expires_at < chrono::Utc::now() {
-            return Err(aero_protocol::AeroError::Unauthorized("Invite expired".into()));
+            return Err(aero_protocol::AeroError::Unauthorized(
+                "Invite expired".into(),
+            ));
         }
 
         let membership = Membership {

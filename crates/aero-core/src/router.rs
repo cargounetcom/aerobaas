@@ -1,84 +1,95 @@
 use std::sync::Arc;
 
-use axum::{routing::{get, post, put, delete}, Router};
+use axum::{
+    routing::{get, post, put},
+    Router,
+};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::app::AeroApp;
 use crate::error::AeroApiError;
 
 pub fn build_router(app: &Arc<AeroApp>) -> Router {
-    let state = AppState {
-        app: app.clone(),
-    };
+    let state = AppState { app: app.clone() };
 
     Router::new()
         // Health
         .route("/health", get(health))
-
         // Auth
         .route("/v1/auth/register", post(auth_register))
         .route("/v1/auth/login", post(auth_login))
         .route("/v1/auth/refresh", post(auth_refresh))
         .route("/v1/auth/me", get(auth_me))
         .route("/v1/auth/switch-workspace", post(auth_switch_workspace))
-
         // Workspaces (Tenancy)
-        .route("/v1/workspaces", post(create_workspace).get(list_workspaces))
-        .route("/v1/workspaces/:id", get(get_workspace).put(update_workspace).delete(delete_workspace))
+        .route(
+            "/v1/workspaces",
+            post(create_workspace).get(list_workspaces),
+        )
+        .route(
+            "/v1/workspaces/:id",
+            get(get_workspace)
+                .put(update_workspace)
+                .delete(delete_workspace),
+        )
         .route("/v1/workspaces/:id/members", get(list_members))
-        .route("/v1/workspaces/:id/members/:user_id", put(update_member_role).delete(remove_member))
+        .route(
+            "/v1/workspaces/:id/members/:user_id",
+            put(update_member_role).delete(remove_member),
+        )
         .route("/v1/workspaces/:id/invite", post(invite_member))
         .route("/v1/workspaces/invite/accept", post(accept_invite))
-
         // Keys API 2.0
         .route("/v1/keys", post(create_key).get(list_keys))
         .route("/v1/keys/:id", get(get_key).delete(delete_key))
         .route("/v1/keys/verify", post(verify_key))
-
         // Functions
         .route("/v1/functions", post(deploy_function).get(list_functions))
-        .route("/v1/functions/:id", get(get_function).delete(delete_function))
+        .route(
+            "/v1/functions/:id",
+            get(get_function).delete(delete_function),
+        )
         .route("/v1/functions/:id/execute", post(execute_function))
-
         // Remediation
         .route("/v1/remediation/scan", post(scan_dependencies))
         .route("/v1/remediation/remediate", post(remediate))
-
         // Skills
         .route("/v1/skills", get(list_skills).post(install_skill))
         .route("/v1/skills/:id", get(get_skill))
         .route("/v1/deploy/auto-detect", post(deploy_auto_detect))
-
         // MCP
         .route("/v1/mcp", get(mcp_ws_handler))
-
         // AI
         .route("/v1/ai/generate", post(ai_generate))
-
         // Chat
-        .route("/v1/chat/conversations", post(create_conversation).get(list_conversations))
-        .route("/v1/chat/conversations/:id", get(get_conversation).delete(delete_conversation))
+        .route(
+            "/v1/chat/conversations",
+            post(create_conversation).get(list_conversations),
+        )
+        .route(
+            "/v1/chat/conversations/:id",
+            get(get_conversation).delete(delete_conversation),
+        )
         .route("/v1/chat/conversations/:id/messages", get(get_messages))
         .route("/v1/chat/conversations/:id/send", post(send_message))
-        .route("/v1/chat/conversations/:id/panel-config", put(update_panel_config))
+        .route(
+            "/v1/chat/conversations/:id/panel-config",
+            put(update_panel_config),
+        )
         .route("/v1/chat/panels", get(list_panels))
         .route("/v1/chat/comfort", get(get_comfort_panel))
-
         // Inspector
         .route("/v1/inspector/stats", get(inspector_stats))
         .route("/v1/inspector/traces", get(inspector_traces))
-
         // Audit Log
         .route("/v1/audit/events", get(audit_events))
         .route("/v1/audit/recent", get(audit_recent))
         .route("/v1/audit/stream", get(audit_stream))
-
         // Metrics
         .route("/v1/metrics/snapshot", get(metrics_snapshot))
         .route("/v1/metrics/sandboxes", get(metrics_sandboxes))
         .route("/v1/metrics/sandboxes/:id", get(metrics_sandbox_detail))
         .route("/v1/metrics/history", get(metrics_history))
-
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -211,7 +222,11 @@ async fn update_member_role(
         "manager" => aero_protocol::tenancy::Role::Manager,
         _ => aero_protocol::tenancy::Role::User,
     };
-    state.app.tenancy.update_member_role(workspace_id, claims.sub, user_id, role).await?;
+    state
+        .app
+        .tenancy
+        .update_member_role(workspace_id, claims.sub, user_id, role)
+        .await?;
     Ok(StatusCode::OK)
 }
 
@@ -222,7 +237,11 @@ async fn remove_member(
 ) -> Result<StatusCode, AeroApiError> {
     let token = extract_bearer(&headers)?;
     let claims = state.app.auth.verify_token(&token)?;
-    state.app.tenancy.remove_member(workspace_id, claims.sub, user_id).await?;
+    state
+        .app
+        .tenancy
+        .remove_member(workspace_id, claims.sub, user_id)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -234,7 +253,11 @@ async fn invite_member(
 ) -> Result<Json<aero_protocol::tenancy::InviteResponse>, AeroApiError> {
     let token = extract_bearer(&headers)?;
     let claims = state.app.auth.verify_token(&token)?;
-    let resp = state.app.tenancy.invite_member(workspace_id, claims.sub, req).await?;
+    let resp = state
+        .app
+        .tenancy
+        .invite_member(workspace_id, claims.sub, req)
+        .await?;
     Ok(Json(resp))
 }
 
@@ -245,7 +268,11 @@ async fn accept_invite(
 ) -> Result<Json<aero_protocol::tenancy::Membership>, AeroApiError> {
     let token = extract_bearer(&headers)?;
     let claims = state.app.auth.verify_token(&token)?;
-    let membership = state.app.tenancy.accept_invite(&req.invite_token, claims.sub).await?;
+    let membership = state
+        .app
+        .tenancy
+        .accept_invite(&req.invite_token, claims.sub)
+        .await?;
     Ok(Json(membership))
 }
 
@@ -296,7 +323,11 @@ async fn deploy_function(
     State(state): State<AppState>,
     Json(req): Json<aero_protocol::functions::DeployRequest>,
 ) -> Result<Json<aero_protocol::functions::DeployResponse>, AeroApiError> {
-    let resp = state.app.wasm_runtime.deploy(req, &state.app.remediation).await?;
+    let resp = state
+        .app
+        .wasm_runtime
+        .deploy(req, &state.app.remediation)
+        .await?;
     Ok(Json(resp))
 }
 
@@ -379,17 +410,18 @@ async fn deploy_auto_detect(
     State(state): State<AppState>,
     Json(req): Json<aero_protocol::skills::DeployAutoDetectRequest>,
 ) -> Result<Json<aero_protocol::skills::DeployAutoDetectResponse>, AeroApiError> {
-    let resp = state.app.skill_registry.deploy_auto_detect(req, &state.app.wasm_runtime, &state.app.ai_engine).await?;
+    let resp = state
+        .app
+        .skill_registry
+        .deploy_auto_detect(req, &state.app.wasm_runtime, &state.app.ai_engine)
+        .await?;
     Ok(Json(resp))
 }
 
 // === MCP ===
 
-async fn mcp_ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| state.app.mcp_server.handle_connection(socket))
+async fn mcp_ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| async move { state.app.mcp_server.handle_connection(socket).await })
 }
 
 // === AI ===
@@ -398,7 +430,8 @@ async fn ai_generate(
     State(state): State<AppState>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AeroApiError> {
-    let prompt = req.get("prompt")
+    let prompt = req
+        .get("prompt")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AeroApiError::BadRequest("Missing 'prompt' field".into()))?;
     let result = state.app.ai_engine.generate_text(prompt).await?;
@@ -415,7 +448,11 @@ async fn create_conversation(
     let token = extract_bearer(&headers)?;
     let claims = state.app.auth.verify_token(&token)?;
     let ws_id = claims.workspace_id.unwrap_or_default();
-    let conv = state.app.chat.create_conversation(ws_id, claims.sub, req).await?;
+    let conv = state
+        .app
+        .chat
+        .create_conversation(ws_id, claims.sub, req)
+        .await?;
     Ok(Json(conv))
 }
 
@@ -494,11 +531,8 @@ async fn get_comfort_panel(
         avg_latency_ms: 0.0,
         uptime_hours: 0.0,
     };
-    let panel = aero_chat::PanelManager::build_comfort_panel(
-        Some(&user.name),
-        &conversations,
-        stats,
-    );
+    let panel =
+        aero_chat::PanelManager::build_comfort_panel(Some(&user.name), &conversations, stats);
     Ok(Json(panel))
 }
 
@@ -538,17 +572,18 @@ async fn audit_recent(
     Ok(Json(events))
 }
 
-async fn audit_stream(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn audit_stream(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |mut socket| async move {
         let mut rx = state.app.event_broadcaster.subscribe();
         tracing::info!("Audit stream WebSocket connected");
 
         while let Ok(event) = rx.recv().await {
             let msg = serde_json::to_string(&event).unwrap_or_default();
-            if socket.send(axum::extract::ws::Message::Text(msg)).await.is_err() {
+            if socket
+                .send(axum::extract::ws::Message::Text(msg))
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -577,8 +612,11 @@ async fn metrics_sandboxes(
 async fn metrics_sandbox_detail(
     State(state): State<AppState>,
     Path(id): Path<uuid::Uuid>,
-) -> Result<Json<aero_protocol::metrics::SandboxMetrics, AeroApiError> {
-    let metrics = state.app.metrics_collector.get_sandbox(id)
+) -> Result<Json<aero_protocol::metrics::SandboxMetrics>, AeroApiError> {
+    let metrics = state
+        .app
+        .metrics_collector
+        .get_sandbox(id)
         .ok_or_else(|| AeroApiError::BadRequest("Sandbox not found".into()))?;
     Ok(Json(metrics))
 }
@@ -586,7 +624,7 @@ async fn metrics_sandbox_detail(
 async fn metrics_history(
     State(state): State<AppState>,
     Query(q): Query<aero_protocol::metrics::MetricsQuery>,
-) -> Result<Json<aero_protocol::metrics::MetricsHistory, AeroApiError> {
+) -> Result<Json<aero_protocol::metrics::MetricsHistory>, AeroApiError> {
     let window = q.window_minutes.unwrap_or(60);
     let history = state.app.metrics_history.get_history(window);
     Ok(Json(history))
@@ -603,7 +641,7 @@ fn extract_bearer(headers: &HeaderMap) -> Result<String, AeroApiError> {
         .ok_or_else(|| AeroApiError::BadRequest("Missing Authorization header".into()))
 }
 
-use axum::extract::{Path, State, WebSocketUpgrade, Query};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;

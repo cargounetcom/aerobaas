@@ -3,10 +3,11 @@ use std::sync::Arc;
 use aero_ai_engine::AiEngine;
 use aero_db::DbClient;
 use aero_protocol::skills::{DeployAutoDetectRequest, DeployAutoDetectResponse, SkillPack};
-use aero_wasm_runtime::WasmRuntime;
 use aero_protocol::AeroResult;
+use aero_wasm_runtime::WasmRuntime;
 
 pub struct SkillRegistry {
+    #[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
     db: Arc<DbClient>,
     builtin_skills: Vec<SkillPack>,
 }
@@ -28,7 +29,9 @@ impl SkillRegistry {
             .iter()
             .find(|s| s.id == id)
             .cloned()
-            .ok_or_else(|| aero_protocol::AeroError::NotFound(format!("Skill pack '{id}' not found")))
+            .ok_or_else(|| {
+                aero_protocol::AeroError::NotFound(format!("Skill pack '{id}' not found"))
+            })
     }
 
     pub async fn install_skill(&self, skill: SkillPack) -> AeroResult<SkillPack> {
@@ -39,7 +42,7 @@ impl SkillRegistry {
     pub async fn deploy_auto_detect(
         &self,
         req: DeployAutoDetectRequest,
-        wasm_runtime: &WasmRuntime,
+        _wasm_runtime: &WasmRuntime,
         ai_engine: &AiEngine,
     ) -> AeroResult<DeployAutoDetectResponse> {
         let start = std::time::Instant::now();

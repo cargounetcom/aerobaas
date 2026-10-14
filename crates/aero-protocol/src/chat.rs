@@ -32,34 +32,26 @@ pub struct PanelConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PanelLayout {
     Single,
+    #[default]
     Split,
     Triple,
     Dashboard,
 }
 
-impl Default for PanelLayout {
-    fn default() -> Self {
-        Self::Split
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PanelTheme {
     Light,
+    #[default]
     Dark,
     Midnight,
     Aurora,
     Sunset,
     Ocean,
-}
-
-impl Default for PanelTheme {
-    fn default() -> Self {
-        Self::Dark
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

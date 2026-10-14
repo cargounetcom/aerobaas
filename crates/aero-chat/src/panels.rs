@@ -1,6 +1,4 @@
 use aero_protocol::chat::*;
-use aero_protocol::AeroResult;
-use uuid::Uuid;
 
 pub struct PanelManager;
 

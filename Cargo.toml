@@ -24,9 +24,10 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "AGPL-3.0"
-authors = ["AeroBaaS Team"]
-repository = "https://github.com/aerobaas/aerobaas"
+license = "LicenseRef-AeroBaaS-Proprietary"
+publish = false
+authors = ["Aurora Ember Cyber Bio Lab"]
+repository = "https://github.com/cargounetcom/aerobaas"
 
 [workspace.dependencies]
 tokio = { version = "1.40", features = ["full"] }

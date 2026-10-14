@@ -53,7 +53,9 @@ impl TenancyService {
             created_at: now,
         };
 
-        self.store.create_workspace(workspace.clone(), membership).await?;
+        self.store
+            .create_workspace(workspace.clone(), membership)
+            .await?;
 
         tracing::info!(workspace_id = %ws_id, owner_id = %owner_id, "Workspace created");
 
@@ -71,7 +73,11 @@ impl TenancyService {
         self.store.list_workspaces_for_user(user_id).await
     }
 
-    pub async fn update_workspace(&self, id: Uuid, req: UpdateWorkspaceRequest) -> AeroResult<Workspace> {
+    pub async fn update_workspace(
+        &self,
+        id: Uuid,
+        req: UpdateWorkspaceRequest,
+    ) -> AeroResult<Workspace> {
         self.store.update_workspace(id, req).await
     }
 

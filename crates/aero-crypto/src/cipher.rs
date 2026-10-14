@@ -41,7 +41,10 @@ impl AesCipher {
 
     pub fn encrypt_str(&self, plaintext: &str) -> anyhow::Result<String> {
         let bytes = self.encrypt(plaintext.as_bytes())?;
-        Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes))
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            &bytes,
+        ))
     }
 
     pub fn decrypt_str(&self, encoded: &str) -> anyhow::Result<String> {

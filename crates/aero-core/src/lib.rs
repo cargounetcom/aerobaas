@@ -1,6 +1,6 @@
 pub mod app;
-pub mod router;
-pub mod middleware;
 pub mod error;
+pub mod middleware;
+pub mod router;
 
 pub use app::AeroApp;

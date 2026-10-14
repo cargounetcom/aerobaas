@@ -6,7 +6,7 @@ pub fn generate_api_key() -> String {
         .map(|_| {
             let idx = rand::thread_rng().gen_range(0..62);
             match idx {
-                0..=9 => (b'0' + idx - 0) as char,
+                0..=9 => (b'0' + idx) as char,
                 10..=35 => (b'a' + idx - 10) as char,
                 _ => (b'A' + idx - 36) as char,
             }

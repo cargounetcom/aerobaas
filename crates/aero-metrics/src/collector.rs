@@ -20,7 +20,13 @@ impl MetricsCollector {
         }
     }
 
-    pub fn register_sandbox(&self, function_id: Uuid, function_name: &str, memory_limit_mb: f64, cpu_limit_percent: f64) {
+    pub fn register_sandbox(
+        &self,
+        function_id: Uuid,
+        function_name: &str,
+        memory_limit_mb: f64,
+        cpu_limit_percent: f64,
+    ) {
         let metrics = SandboxMetrics {
             function_id,
             function_name: function_name.to_string(),
@@ -54,7 +60,9 @@ impl MetricsCollector {
     }
 
     pub fn start_invocation(&self, function_id: Uuid) {
-        self.invocation_starts.write().insert(function_id, Instant::now());
+        self.invocation_starts
+            .write()
+            .insert(function_id, Instant::now());
         let mut sandboxes = self.sandboxes.write();
         if let Some(s) = sandboxes.get_mut(&function_id) {
             s.status = SandboxStatus::Running;
@@ -64,8 +72,17 @@ impl MetricsCollector {
         }
     }
 
-    pub fn end_invocation(&self, function_id: Uuid, success: bool, memory_used_mb: f64, cpu_percent: f64) {
-        let duration = self.invocation_starts.write().remove(&function_id)
+    pub fn end_invocation(
+        &self,
+        function_id: Uuid,
+        success: bool,
+        memory_used_mb: f64,
+        cpu_percent: f64,
+    ) {
+        let duration = self
+            .invocation_starts
+            .write()
+            .remove(&function_id)
             .map(|start| start.elapsed().as_millis() as f64)
             .unwrap_or(0.0);
 
@@ -131,9 +148,18 @@ impl MetricsCollector {
 
     fn aggregate(&self, sandboxes: &[SandboxMetrics]) -> AggregateMetrics {
         let total = sandboxes.len() as u32;
-        let active = sandboxes.iter().filter(|s| s.status == SandboxStatus::Running).count() as u32;
-        let idle = sandboxes.iter().filter(|s| s.status == SandboxStatus::Idle).count() as u32;
-        let blocked = sandboxes.iter().filter(|s| s.status == SandboxStatus::Blocked).count() as u32;
+        let active = sandboxes
+            .iter()
+            .filter(|s| s.status == SandboxStatus::Running)
+            .count() as u32;
+        let idle = sandboxes
+            .iter()
+            .filter(|s| s.status == SandboxStatus::Idle)
+            .count() as u32;
+        let blocked = sandboxes
+            .iter()
+            .filter(|s| s.status == SandboxStatus::Blocked)
+            .count() as u32;
 
         let total_invocations: u64 = sandboxes.iter().map(|s| s.invocations_total).sum();
         let total_errors: u64 = sandboxes.iter().map(|s| s.errors_total).sum();
@@ -141,18 +167,29 @@ impl MetricsCollector {
         let mut cold_starts: Vec<f64> = self.cold_starts.read().clone();
         cold_starts.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let avg_cold = if cold_starts.is_empty() { 0.0 } else { cold_starts.iter().sum::<f64>() / cold_starts.len() as f64 };
+        let avg_cold = if cold_starts.is_empty() {
+            0.0
+        } else {
+            cold_starts.iter().sum::<f64>() / cold_starts.len() as f64
+        };
         let p50 = percentile(&cold_starts, 0.50);
         let p95 = percentile(&cold_starts, 0.95);
         let p99 = percentile(&cold_starts, 0.99);
 
         let avg_mem = if total > 0 {
             sandboxes.iter().map(|s| s.memory_used_mb).sum::<f64>() / total as f64
-        } else { 0.0 };
-        let max_mem = sandboxes.iter().map(|s| s.memory_used_mb).fold(0.0, f64::max);
+        } else {
+            0.0
+        };
+        let max_mem = sandboxes
+            .iter()
+            .map(|s| s.memory_used_mb)
+            .fold(0.0, f64::max);
         let avg_cpu = if total > 0 {
             sandboxes.iter().map(|s| s.cpu_percent).sum::<f64>() / total as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         let total_egress: u64 = sandboxes.iter().map(|s| s.network_egress_bytes).sum();
         let total_egress_blocked: u32 = sandboxes.iter().map(|s| s.egress_blocked).sum();
@@ -172,7 +209,7 @@ impl MetricsCollector {
             max_memory_mb: max_mem,
             avg_cpu_percent: avg_cpu,
             total_egress_bytes: total_egress,
-            total_egress_blocked: total_egress_blocked,
+            total_egress_blocked,
             rps: 0.0,
         }
     }

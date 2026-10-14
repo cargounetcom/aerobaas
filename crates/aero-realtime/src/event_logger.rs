@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use aero_protocol::audit::{AuditAction, AuditEvent, ActorType, AuditLogQuery, AuditLogResponse, EventSeverity};
+use aero_protocol::audit::{
+    ActorType, AuditAction, AuditEvent, AuditLogQuery, AuditLogResponse, EventSeverity,
+};
 use aero_protocol::AeroResult;
 use parking_lot::RwLock;
 use uuid::Uuid;
@@ -44,6 +46,7 @@ impl AuditLogger {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn log_simple(
         &self,
         workspace_id: Uuid,

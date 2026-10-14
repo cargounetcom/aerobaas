@@ -34,6 +34,12 @@ pub enum AlertType {
     SuspiciousTraffic,
 }
 
+impl Default for AnomalyDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnomalyDetector {
     pub fn new() -> Self {
         Self {
@@ -72,7 +78,10 @@ impl AnomalyDetector {
             alerts.push(AnomalyAlert {
                 alert_type: AlertType::DdosAttack,
                 function_id: Uuid::nil(),
-                details: format!("RPS {recent_count} exceeds threshold {}", self.ddos_threshold),
+                details: format!(
+                    "RPS {recent_count} exceeds threshold {}",
+                    self.ddos_threshold
+                ),
             });
         }
 
@@ -81,7 +90,10 @@ impl AnomalyDetector {
                 alerts.push(AnomalyAlert {
                     alert_type: AlertType::InfiniteLoop,
                     function_id: snapshot.function_id,
-                    details: format!("Execution took {}ms — possible infinite loop", snapshot.duration_ms),
+                    details: format!(
+                        "Execution took {}ms — possible infinite loop",
+                        snapshot.duration_ms
+                    ),
                 });
                 break;
             }

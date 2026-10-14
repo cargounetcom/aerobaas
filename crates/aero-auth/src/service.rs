@@ -12,6 +12,7 @@ use crate::jwt::JwtService;
 
 pub struct AuthService {
     jwt: JwtService,
+    #[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
     db: Arc<DbClient>,
     users: RwLock<std::collections::HashMap<Uuid, User>>,
     email_index: RwLock<std::collections::HashMap<String, Uuid>>,
@@ -74,7 +75,7 @@ impl AuthService {
             updated_at: now,
         };
 
-        let membership = Membership {
+        let _membership = Membership {
             id: Uuid::new_v4(),
             workspace_id,
             user_id,
@@ -89,7 +90,13 @@ impl AuthService {
 
         let (token, refresh_token) = self
             .jwt
-            .issue_pair(user_id, &user.email, Some(workspace_id), Some(Role::Owner.as_str()), &[])
+            .issue_pair(
+                user_id,
+                &user.email,
+                Some(workspace_id),
+                Some(Role::Owner.as_str()),
+                &[],
+            )
             .map_err(|e| AeroError::Internal(e.to_string()))?;
 
         Ok(AuthResponse {
@@ -106,7 +113,8 @@ impl AuthService {
             email_idx.get(&req.email).copied()
         };
 
-        let user_id = user_id.ok_or_else(|| AeroError::Unauthorized("Invalid credentials".into()))?;
+        let user_id =
+            user_id.ok_or_else(|| AeroError::Unauthorized("Invalid credentials".into()))?;
 
         let user = {
             let users = self.users.read();
@@ -126,7 +134,13 @@ impl AuthService {
         let workspace_id = Some(Uuid::new_v4());
         let (token, refresh_token) = self
             .jwt
-            .issue_pair(user_id, &user.email, workspace_id, Some(Role::Owner.as_str()), &[])
+            .issue_pair(
+                user_id,
+                &user.email,
+                workspace_id,
+                Some(Role::Owner.as_str()),
+                &[],
+            )
             .map_err(|e| AeroError::Internal(e.to_string()))?;
 
         tracing::info!(user_id = %user_id, "User logged in");
@@ -154,7 +168,13 @@ impl AuthService {
 
         let (token, refresh_token) = self
             .jwt
-            .issue_pair(user.id, &user.email, claims.workspace_id, claims.role.as_deref(), &claims.scopes)
+            .issue_pair(
+                user.id,
+                &user.email,
+                claims.workspace_id,
+                claims.role.as_deref(),
+                &claims.scopes,
+            )
             .map_err(|e| AeroError::Internal(e.to_string()))?;
 
         Ok(AuthResponse {
@@ -179,7 +199,13 @@ impl AuthService {
 
         let (token, _) = self
             .jwt
-            .issue_pair(user_id, &user.email, Some(req.workspace_id), Some(Role::User.as_str()), &[])
+            .issue_pair(
+                user_id,
+                &user.email,
+                Some(req.workspace_id),
+                Some(Role::User.as_str()),
+                &[],
+            )
             .map_err(|e| AeroError::Internal(e.to_string()))?;
 
         Ok(SwitchWorkspaceResponse {

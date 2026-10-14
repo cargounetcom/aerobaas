@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 pub struct KeyManager {
     db: Arc<DbClient>,
+    #[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
     config: Arc<AeroConfig>,
 }
 

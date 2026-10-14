@@ -1,9 +1,7 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
 
 use aero_protocol::inspector::*;
 use parking_lot::RwLock;
-use uuid::Uuid;
 
 pub struct TraceCollector {
     config: InspectorConfig,

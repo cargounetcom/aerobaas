@@ -7,8 +7,8 @@ use aero_config::AeroConfig;
 use aero_db::DbClient;
 use aero_inspector::TraceCollector;
 use aero_keys::KeyManager;
-use aero_metrics::{MetricsCollector, MetricsHistoryStore};
 use aero_mcp_server::McpServer;
+use aero_metrics::{MetricsCollector, MetricsHistoryStore};
 use aero_realtime::{AuditLogger, EventBroadcaster};
 use aero_remediation::RemediationService;
 use aero_skills::SkillRegistry;
@@ -47,14 +47,20 @@ impl AeroApp {
         let wasm_runtime = Arc::new(WasmRuntime::new(config.wasm.clone())?);
         let ai_engine = Arc::new(AiEngine::new(config.ai.clone()).await?);
         let key_manager = Arc::new(KeyManager::new(db.clone(), config.clone()));
-        let mcp_server = Arc::new(McpServer::new(db.clone(), ai_engine.clone(), wasm_runtime.clone()));
+        let mcp_server = Arc::new(McpServer::new(
+            db.clone(),
+            ai_engine.clone(),
+            wasm_runtime.clone(),
+        ));
         let remediation = Arc::new(RemediationService::new(config.clone()));
         let skill_registry = Arc::new(SkillRegistry::new(db.clone()));
 
-        let auth = Arc::new(AuthService::new(db.clone(), "aero_jwt_secret_2026"));
+        let auth = Arc::new(AuthService::new(db.clone(), &config.security.jwt_secret));
         let tenancy_store = Arc::new(TenancyStore::new());
         let tenancy = Arc::new(TenancyService::new(tenancy_store.clone()));
-        let inspector = Arc::new(TraceCollector::new(aero_protocol::inspector::InspectorConfig::default()));
+        let inspector = Arc::new(TraceCollector::new(
+            aero_protocol::inspector::InspectorConfig::default(),
+        ));
         let chat_store = ChatStore::new();
         let chat = Arc::new(ChatService::new(ai_engine.clone(), chat_store));
 
@@ -86,8 +92,8 @@ impl AeroApp {
         })
     }
 
-    pub async fn serve(&self) -> anyhow::Result<()> {
-        let app = build_router(self);
+    pub async fn serve(self: std::sync::Arc<Self>) -> anyhow::Result<()> {
+        let app = build_router(&self);
         let addr = format!("{}:{}", self.config.server.host, self.config.server.port);
         tracing::info!(addr = %addr, "Starting HTTP server");
         let listener = tokio::net::TcpListener::bind(&addr).await?;

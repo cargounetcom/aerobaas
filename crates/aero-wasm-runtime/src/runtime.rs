@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use aero_config::WasmConfig;
-use aero_protocol::functions::{DeployRequest, DeployResponse, ExecuteResponse, Function, FunctionStatus, Runtime};
+use aero_protocol::functions::{
+    DeployRequest, DeployResponse, ExecuteResponse, Function, FunctionStatus, Runtime,
+};
 use aero_protocol::AeroResult;
 use aero_remediation::RemediationService;
 use parking_lot::RwLock;
@@ -16,10 +17,12 @@ use crate::sandbox::SandboxConfig;
 pub struct WasmRuntime {
     config: WasmConfig,
     instances: RwLock<HashMap<Uuid, WasmInstance>>,
+    #[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
     egress_filter: EgressFilter,
 }
 
 #[derive(Clone)]
+#[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
 struct WasmInstance {
     function: Function,
     wasm_bytes: Vec<u8>,
@@ -28,7 +31,10 @@ struct WasmInstance {
 
 impl WasmRuntime {
     pub fn new(config: WasmConfig) -> anyhow::Result<Self> {
-        let egress_filter = EgressFilter::new(config.allowed_egress_hosts.clone(), config.hazmat_egress_filtering);
+        let egress_filter = EgressFilter::new(
+            config.allowed_egress_hosts.clone(),
+            config.hazmat_egress_filtering,
+        );
         Ok(Self {
             config,
             instances: RwLock::new(HashMap::new()),
@@ -39,7 +45,7 @@ impl WasmRuntime {
     pub async fn deploy(
         &self,
         req: DeployRequest,
-        remediation: &RemediationService,
+        _remediation: &RemediationService,
     ) -> AeroResult<DeployResponse> {
         let start = Instant::now();
 
@@ -89,11 +95,14 @@ impl WasmRuntime {
             updated_at: chrono::Utc::now(),
         };
 
-        self.instances.write().insert(function_id, WasmInstance {
-            function: function.clone(),
-            wasm_bytes: req.wasm_bytes,
-            last_used: Instant::now(),
-        });
+        self.instances.write().insert(
+            function_id,
+            WasmInstance {
+                function: function.clone(),
+                wasm_bytes: req.wasm_bytes,
+                last_used: Instant::now(),
+            },
+        );
 
         let elapsed = start.elapsed();
         tracing::info!(
@@ -125,7 +134,9 @@ impl WasmRuntime {
         };
 
         let Some(instance) = instance else {
-            return Err(aero_protocol::AeroError::NotFound(format!("Function {function_id} not found")));
+            return Err(aero_protocol::AeroError::NotFound(format!(
+                "Function {function_id} not found"
+            )));
         };
 
         if instance.function.status != FunctionStatus::Deployed {
@@ -156,7 +167,10 @@ impl WasmRuntime {
     }
 
     async fn run_hazmat_quarantine(&self, wasm_bytes: &[u8]) -> AeroResult<bool> {
-        tracing::info!("Running Hazmat quarantine scan on {} bytes", wasm_bytes.len());
+        tracing::info!(
+            "Running Hazmat quarantine scan on {} bytes",
+            wasm_bytes.len()
+        );
 
         let dangerous_patterns: &[&[u8]] = &[
             b"127.0.0.1",
@@ -219,10 +233,6 @@ fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 
 mod hex {
     pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-        bytes
-            .as_ref()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect()
+        bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
     }
 }

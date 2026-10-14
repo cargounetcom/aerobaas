@@ -50,7 +50,7 @@ impl ChatService {
 
     pub async fn send_message(
         &self,
-        user_id: Uuid,
+        _user_id: Uuid,
         req: SendMessageRequest,
     ) -> AeroResult<SendMessageResponse> {
         let start = std::time::Instant::now();
@@ -77,7 +77,10 @@ impl ChatService {
         self.store.store_message(user_message.clone()).await?;
 
         let prompt = if let Some(ref system) = conversation.system_prompt {
-            format!("{system}\n\nUser: {content}\nAssistant:", content = req.content)
+            format!(
+                "{system}\n\nUser: {content}\nAssistant:",
+                content = req.content
+            )
         } else {
             req.content.clone()
         };

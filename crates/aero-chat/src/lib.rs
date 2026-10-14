@@ -1,7 +1,7 @@
-pub mod service;
 pub mod panels;
+pub mod service;
 pub mod store;
 
-pub use service::ChatService;
 pub use panels::PanelManager;
+pub use service::ChatService;
 pub use store::ChatStore;

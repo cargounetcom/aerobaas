@@ -1,6 +1,6 @@
 use aero_protocol::remediation::{ComplianceCheck, ComplianceLog};
-use sha2::{Digest, Sha256};
 use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 pub struct ComplianceBuilder;
 
@@ -26,10 +26,6 @@ impl ComplianceBuilder {
 
 mod hex {
     pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-        bytes
-            .as_ref()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect()
+        bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
     }
 }

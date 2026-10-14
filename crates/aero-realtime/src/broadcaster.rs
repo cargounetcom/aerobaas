@@ -3,7 +3,6 @@ use std::sync::Arc;
 use aero_protocol::audit::{AuditEvent, RealtimeEvent};
 use parking_lot::RwLock;
 use tokio::sync::broadcast;
-use uuid::Uuid;
 
 pub struct EventBroadcaster {
     tx: broadcast::Sender<RealtimeEvent>,
@@ -29,7 +28,10 @@ impl EventBroadcaster {
 
     pub fn subscribe(&self) -> broadcast::Receiver<RealtimeEvent> {
         *self.subscriber_count.write() += 1;
-        tracing::info!(subscribers = *self.subscriber_count.read(), "New WebSocket subscriber for audit events");
+        tracing::info!(
+            subscribers = *self.subscriber_count.read(),
+            "New WebSocket subscriber for audit events"
+        );
         self.tx.subscribe()
     }
 

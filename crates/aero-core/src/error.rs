@@ -29,6 +29,10 @@ impl IntoResponse for AeroApiError {
             Self::BadRequest(msg) => (400, msg),
         };
         let body = Json(json!({ "error": message, "code": status }));
-        (StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR), body).into_response()
+        (
+            StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+            body,
+        )
+            .into_response()
     }
 }

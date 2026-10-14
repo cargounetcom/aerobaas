@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
 use aero_config::AeroConfig;
-use aero_protocol::remediation::{
-    ComplianceCheck, ComplianceLog, Patch, RemediationResult, ScanRequest, ScanResult,
-    Vulnerability,
-};
+use aero_protocol::remediation::{ComplianceCheck, RemediationResult, ScanRequest, ScanResult};
 
-use crate::scanner::Scanner;
-use crate::patcher::Patcher;
 use crate::compliance::ComplianceBuilder;
+use crate::patcher::Patcher;
+use crate::scanner::Scanner;
 
 pub struct RemediationService {
     config: Arc<AeroConfig>,
@@ -63,7 +60,10 @@ impl RemediationService {
                 name: "OWASP Top 10 scan".into(),
                 passed: !has_critical,
                 details: if has_critical {
-                    format!("{} critical vulnerabilities found", scan_result.critical_count)
+                    format!(
+                        "{} critical vulnerabilities found",
+                        scan_result.critical_count
+                    )
                 } else {
                     "No OWASP Top 10 critical issues".into()
                 },

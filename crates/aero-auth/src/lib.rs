@@ -1,6 +1,6 @@
 pub mod jwt;
-pub mod service;
 pub mod middleware;
+pub mod service;
 
 pub use jwt::JwtService;
 pub use service::AuthService;

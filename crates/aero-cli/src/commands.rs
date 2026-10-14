@@ -2,13 +2,18 @@ use aero_config::AeroConfig;
 use aero_crypto::generate_api_key;
 use aero_skills::FrameworkDetector;
 
-pub async fn serve(host: String, port: u16) -> anyhow::Result<()> {
-    let mut config = AeroConfig::default();
-    config.server.host = host;
-    config.server.port = port;
+pub async fn serve(host: Option<String>, port: Option<u16>) -> anyhow::Result<()> {
+    let mut config = AeroConfig::from_env();
+    if let Some(h) = host {
+        config.server.host = h;
+    }
+    if let Some(p) = port {
+        config.server.port = p;
+    }
+    config.validate().map_err(anyhow::Error::msg)?;
 
     let app = aero_core::AeroApp::new(config).await?;
-    app.serve().await
+    std::sync::Arc::new(app).serve().await
 }
 
 pub async fn deploy(auto_detect: bool, path: String) -> anyhow::Result<()> {
@@ -131,7 +136,11 @@ remediation_enabled = true
 
 pub async fn list_functions() -> anyhow::Result<()> {
     let client = reqwest::Client::new();
-    match client.get("http://localhost:8080/v1/functions").send().await {
+    match client
+        .get("http://localhost:8080/v1/functions")
+        .send()
+        .await
+    {
         Ok(r) => {
             let body: serde_json::Value = r.json().await?;
             println!("{body:#}");

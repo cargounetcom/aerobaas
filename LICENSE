@@ -1,0 +1,17 @@
+AeroBaaS — Proprietary Software Licence
+
+Copyright (c) 2026 Aurora Ember Cyber Bio Lab (sole trader, Ireland, business name
+registration no. 787765), 160 Wolfe Tone Street, Cork, T23 K688, Ireland.
+All rights reserved.
+
+This software and its source code ("the Software") are confidential and proprietary.
+No licence is granted to use, copy, modify, merge, publish, distribute, sublicense or
+sell the Software, in whole or in part, except under a separate written licence
+agreement or a valid licence key issued by Aurora Ember Cyber Bio Lab, and only within
+the terms of that agreement.
+
+Third-party open-source components included as dependencies remain under their own
+licences; see Cargo.lock and the respective packages.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+EXCEPT AS EXPRESSLY STATED IN A SEPARATE WRITTEN AGREEMENT.

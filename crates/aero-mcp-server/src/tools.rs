@@ -22,7 +22,8 @@ pub fn all_tools() -> Vec<McpTool> {
         },
         McpTool {
             name: "generate_function".into(),
-            description: "Generate Wasm serverless function code using the embedded AI engine".into(),
+            description: "Generate Wasm serverless function code using the embedded AI engine"
+                .into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -47,7 +48,8 @@ pub fn all_tools() -> Vec<McpTool> {
         },
         McpTool {
             name: "ai_generate".into(),
-            description: "Generate text using the embedded local SLM (no external API calls)".into(),
+            description: "Generate text using the embedded local SLM (no external API calls)"
+                .into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {

@@ -31,9 +31,7 @@ impl AeroError {
             Self::Forbidden(_) => 403,
             Self::NotFound(_) => 404,
             Self::RateLimited => 429,
-            Self::WasmExecution(_)
-            | Self::HazmatViolation(_)
-            | Self::RemediationFailed(_) => 422,
+            Self::WasmExecution(_) | Self::HazmatViolation(_) | Self::RemediationFailed(_) => 422,
             Self::Database(_) | Self::AiEngine(_) => 503,
             Self::Internal(_) => 500,
         }

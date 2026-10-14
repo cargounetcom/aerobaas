@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use aero_ai_engine::AiEngine;
 use aero_db::DbClient;
-use aero_wasm_runtime::WasmRuntime;
 use aero_protocol::mcp::{
-    McpInitializeRequest, McpInitializeResponse, McpTool, McpResource, ServerCapabilities, ServerInfo,
+    McpInitializeRequest, McpInitializeResponse, McpResource, McpTool, ServerCapabilities,
+    ServerInfo,
 };
+use aero_wasm_runtime::WasmRuntime;
 use serde_json::json;
 
 pub struct McpServer {
@@ -95,7 +96,8 @@ impl McpServer {
                 Ok(schema)
             }
             "create_collection" => {
-                let coll_name = arguments.get("name")
+                let coll_name = arguments
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing 'name' field"))?;
                 let schema = arguments.get("schema").cloned().unwrap_or(json!({}));
@@ -103,19 +105,25 @@ impl McpServer {
                 Ok(json!({ "created": true, "collection": coll_name }))
             }
             "generate_function" => {
-                let description = arguments.get("description")
+                let description = arguments
+                    .get("description")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing 'description' field"))?;
-                let language = arguments.get("language")
+                let language = arguments
+                    .get("language")
                     .and_then(|v| v.as_str())
                     .unwrap_or("rust");
-                let generated = self.ai_engine.generate_text(
-                    &format!("Generate a {language} serverless function: {description}")
-                ).await?;
+                let generated = self
+                    .ai_engine
+                    .generate_text(&format!(
+                        "Generate a {language} serverless function: {description}"
+                    ))
+                    .await?;
                 Ok(json!({ "code": generated, "language": language }))
             }
             "ai_generate" => {
-                let prompt = arguments.get("prompt")
+                let prompt = arguments
+                    .get("prompt")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing 'prompt' field"))?;
                 let result = self.ai_engine.generate_text(prompt).await?;

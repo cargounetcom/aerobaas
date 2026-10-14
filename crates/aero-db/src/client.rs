@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use aero_config::DatabaseConfig;
 use aero_protocol::functions::Function;
@@ -9,6 +8,7 @@ use parking_lot::RwLock;
 use uuid::Uuid;
 
 pub struct DbClient {
+    #[allow(dead_code)] // read by the PostgreSQL backend (Phase 1)
     config: DatabaseConfig,
     keys: RwLock<HashMap<Uuid, ApiKey>>,
     key_hashes: RwLock<HashMap<String, Uuid>>,
