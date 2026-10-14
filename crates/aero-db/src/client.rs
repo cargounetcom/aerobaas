@@ -1,13 +1,11 @@
 //! PostgreSQL storage (sqlx). The schema lives in `migrations/` and is applied at startup.
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use aero_config::DatabaseConfig;
 use aero_protocol::functions::Function;
 use aero_protocol::keys::ApiKey;
 use aero_protocol::{AeroError, AeroResult};
-use parking_lot::RwLock;
 use serde::{de::DeserializeOwned, Serialize};
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::Row;
@@ -17,8 +15,6 @@ static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
 pub struct DbClient {
     pool: PgPool,
-    /// MCP collections are still an in-memory prototype; real tables arrive with MCP in Phase 2.
-    collections: RwLock<HashMap<String, serde_json::Value>>,
 }
 
 /// Map any sqlx error to a 503 without leaking details to clients (details go to the log).
@@ -103,10 +99,7 @@ impl DbClient {
             .await
             .map_err(|e| anyhow::anyhow!("database migration failed: {e}"))?;
         tracing::info!("PostgreSQL connected, migrations applied");
-        Ok(Self {
-            pool,
-            collections: RwLock::new(HashMap::new()),
-        })
+        Ok(Self { pool })
     }
 
     pub fn pool(&self) -> &PgPool {
@@ -304,22 +297,5 @@ impl DbClient {
             .await
             .map_err(db_err)?;
         Ok(r.rows_affected() > 0)
-    }
-
-    // ------------------------------------------------------------------ MCP prototype
-
-    pub async fn create_collection(&self, name: &str, schema: serde_json::Value) -> AeroResult<()> {
-        self.collections.write().insert(name.to_string(), schema);
-        tracing::info!(collection = name, "Collection created");
-        Ok(())
-    }
-
-    pub async fn get_schema(&self) -> AeroResult<serde_json::Value> {
-        let collections = self.collections.read();
-        Ok(serde_json::json!({
-            "collections": collections.iter().map(|(k, v)| {
-                serde_json::json!({ "name": k, "schema": v })
-            }).collect::<Vec<_>>()
-        }))
     }
 }

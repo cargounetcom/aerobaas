@@ -44,7 +44,14 @@ pub enum FunctionStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeployRequest {
     pub name: String,
+    /// The module as a JSON byte array (or use `wasm_base64`).
+    #[serde(default)]
     pub wasm_bytes: Vec<u8>,
+    /// The module, base64-encoded (smaller than `wasm_bytes`).
+    #[serde(default)]
+    pub wasm_base64: Option<String>,
+    /// Exported `() -> ()` function to run; default `_start` (WASI command).
+    #[serde(default)]
     pub entrypoint: String,
     pub env_vars: Option<Vec<EnvVarInput>>,
     pub memory_limit_mb: Option<u32>,
@@ -83,4 +90,11 @@ pub struct ExecuteResponse {
     pub duration_ms: u64,
     pub memory_used_mb: f64,
     pub credits_consumed: i64,
+    /// ok | error | timeout | out_of_fuel | out_of_memory
+    pub status: String,
+    /// What the function wrote to stderr.
+    pub logs: String,
+    pub fuel_used: u64,
+    /// True when the module had to be compiled for this run.
+    pub cold_start: bool,
 }

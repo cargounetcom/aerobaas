@@ -34,6 +34,11 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build the example Rust function (wasm32-wasip1)
+        run: |
+          rustup target add wasm32-wasip1
+          cargo build --release --target wasm32-wasip1 --manifest-path examples/functions/hello-rust/Cargo.toml
+          echo "AERO_EXAMPLE_WASM=$PWD/examples/functions/hello-rust/target/wasm32-wasip1/release/hello-rust.wasm" >> "$GITHUB_ENV"
       - name: Tests
         run: cargo test --workspace
       - name: Known gaps (expected to fail until their phase lands)

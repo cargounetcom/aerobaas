@@ -178,13 +178,35 @@ async fn add_member(t: &T, inviter: &str, ws: &str, email: &str, role: &str) -> 
 
 const WASM: [u8; 8] = [0, 97, 115, 109, 1, 0, 0, 0];
 
+/// WASI command that copies stdin to stdout (up to 4 KB) and writes "hi" to stderr.
+const ECHO_WAT: &str = r#"(module
+  (import "wasi_snapshot_preview1" "fd_read" (func $read (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 8000) "hi")
+  (func (export "_start")
+    (i32.store (i32.const 0) (i32.const 64))
+    (i32.store (i32.const 4) (i32.const 4096))
+    (drop (call $read (i32.const 0) (i32.const 0) (i32.const 1) (i32.const 8)))
+    (i32.store (i32.const 16) (i32.const 64))
+    (i32.store (i32.const 20) (i32.load (i32.const 8)))
+    (drop (call $write (i32.const 1) (i32.const 16) (i32.const 1) (i32.const 24)))
+    (i32.store (i32.const 32) (i32.const 8000))
+    (i32.store (i32.const 36) (i32.const 2))
+    (drop (call $write (i32.const 2) (i32.const 32) (i32.const 1) (i32.const 24)))))"#;
+
+fn b64(wat_src: &str) -> String {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.encode(wat::parse_str(wat_src).unwrap())
+}
+
 async fn deploy(t: &T, token: &str, name: &str) -> String {
     let (s, v) = call(
         t,
         "POST",
         "/v1/functions",
         Some(token),
-        Some(json!({"name": name, "wasm_bytes": WASM, "entrypoint": "main"})),
+        Some(json!({"name": name, "wasm_base64": b64(ECHO_WAT)})),
     )
     .await;
     assert_eq!(s, StatusCode::OK, "{v}");
@@ -1332,7 +1354,6 @@ async fn admin_api_contract() {
 // ---------------------------------------------------------------- Phase 2: real runtime
 
 #[tokio::test]
-#[ignore = "Phase 2: Wasm deploy must validate the module"]
 async fn invalid_wasm_is_rejected() {
     let Some((t, ta, _)) = with_workspace().await else {
         return;
@@ -1363,4 +1384,486 @@ async fn ai_returns_model_output() {
     )
     .await;
     assert!(!v.to_string().contains("Processed prompt"), "{v}");
+}
+
+#[tokio::test]
+async fn modules_are_checked_at_deploy() {
+    let Some(t) = app().await else { return };
+    let ta = register(&t, "a@x.io").await;
+    for (wat_src, why) in [
+        (
+            r#"(module (import "env" "connect" (func)) (func (export "_start")))"#,
+            "env.connect",
+        ),
+        (r#"(module (func (export "run")))"#, "_start"),
+    ] {
+        let (s, v) = call(
+            &t,
+            "POST",
+            "/v1/functions",
+            Some(&ta),
+            Some(json!({"name":"x","wasm_base64": b64(wat_src)})),
+        )
+        .await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+        assert!(v["message"].as_str().unwrap().contains(why), "{v}");
+    }
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/functions",
+        Some(&ta),
+        Some(json!({"name":"e","wasm_bytes": WASM})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "empty module has no _start");
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/functions",
+        Some(&ta),
+        Some(json!({"name":"x","wasm_base64":"%%%"})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, v) = call(&t, "POST", "/v1/functions", Some(&ta), Some(json!({"name":"run","wasm_base64": b64(r#"(module (func (export "run")))"#), "entrypoint":"run"}))).await;
+    assert_eq!(s, StatusCode::OK, "custom entrypoint: {v}");
+}
+
+#[tokio::test]
+async fn functions_run_in_the_sandbox() {
+    let Some(t) = app().await else { return };
+    let ta = register(&t, "a@x.io").await;
+    let f = deploy(&t, &ta, "echo").await;
+    let (s, v) = call(
+        &t,
+        "POST",
+        &format!("/v1/functions/{f}/execute"),
+        Some(&ta),
+        Some(json!({"payload": {"order": 42}})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["output"], json!({"order": 42}));
+    assert_eq!(v["status"], "ok");
+    assert_eq!(v["logs"], "hi");
+    let (_, v2) = call(
+        &t,
+        "POST",
+        &format!("/v1/functions/{f}/execute"),
+        Some(&ta),
+        Some(json!({"payload": "plain"})),
+    )
+    .await;
+    assert_eq!(v2["output"], "plain");
+    assert_eq!(v2["cold_start"], false, "compiled module is cached");
+
+    let (s, hist) = call(
+        &t,
+        "GET",
+        &format!("/v1/functions/{f}/executions"),
+        Some(&ta),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(hist.as_array().unwrap().len(), 2);
+    assert_eq!(hist[0]["status"], "ok");
+
+    let looping = r#"(module (func (export "_start") (loop (br 0))))"#;
+    let (_, d) = call(
+        &t,
+        "POST",
+        "/v1/functions",
+        Some(&ta),
+        Some(json!({"name":"loop","wasm_base64": b64(looping), "timeout_ms": 200})),
+    )
+    .await;
+    let id = d["function_id"].as_str().unwrap();
+    let (s, v) = call(
+        &t,
+        "POST",
+        &format!("/v1/functions/{id}/execute"),
+        Some(&ta),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "{v}");
+    assert!(
+        matches!(v["status"].as_str(), Some("timeout") | Some("out_of_fuel")),
+        "{v}"
+    );
+    assert!(v["duration_ms"].as_u64().unwrap() < 2000, "{v}");
+
+    let hungry = r#"(module (memory (export "memory") 1) (func (export "_start") (drop (memory.grow (i32.const 60000)))))"#;
+    let (_, d) = call(
+        &t,
+        "POST",
+        "/v1/functions",
+        Some(&ta),
+        Some(json!({"name":"mem","wasm_base64": b64(hungry)})),
+    )
+    .await;
+    let id = d["function_id"].as_str().unwrap();
+    let (s, v) = call(
+        &t,
+        "POST",
+        &format!("/v1/functions/{id}/execute"),
+        Some(&ta),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "{v}");
+    assert_eq!(v["status"], "out_of_memory");
+}
+
+#[tokio::test]
+async fn tables_rows_and_permissions() {
+    let Some((t, ta, wid)) = with_workspace().await else {
+        return;
+    };
+    let ta = switch(&t, &ta, &wid).await;
+    let cols = json!([{"name":"title","type":"string","required":true},{"name":"done","type":"boolean"},{"name":"due","type":"datetime"}]);
+    let (s, c) = call(
+        &t,
+        "POST",
+        "/v1/collections",
+        Some(&ta),
+        Some(json!({"name":"tasks","columns":cols})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{c}");
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/collections",
+        Some(&ta),
+        Some(json!({"name":"tasks","columns":cols})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/collections",
+        Some(&ta),
+        Some(json!({"name":"Bad Name","columns":cols})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    let (s, v) = call(&t, "POST", "/v1/collections/tasks/rows", Some(&ta), Some(json!({"rows":[{"title":"a","done":false},{"title":"b","done":true,"due":"2026-11-01T09:00:00Z"}]}))).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["inserted"], 2);
+    let (s, v) = call(
+        &t,
+        "POST",
+        "/v1/collections/tasks/rows",
+        Some(&ta),
+        Some(json!({"rows":[{"title":"ok"},{"done":"yes"}]})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert!(v["message"].as_str().unwrap().starts_with("Row 2"), "{v}");
+
+    let (s, q) = call(
+        &t,
+        "GET",
+        "/v1/collections/tasks/rows?where=%7B%22done%22%3Atrue%7D",
+        Some(&ta),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{q}");
+    assert_eq!(q["total"], 1, "all-or-nothing insert + filter: {q}");
+    assert_eq!(q["rows"][0]["data"]["title"], "b");
+    let row = q["rows"][0]["id"].as_str().unwrap().to_string();
+    let (s, _) = call(
+        &t,
+        "DELETE",
+        &format!("/v1/collections/tasks/rows/{row}"),
+        Some(&ta),
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+
+    let tu = add_member(&t, &ta, &wid, "u@x.io", "user").await;
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/collections",
+        Some(&tu),
+        Some(json!({"name":"x","columns":cols})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "users cannot create tables");
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/collections/tasks/rows",
+        Some(&tu),
+        Some(json!({"rows":[{"title":"from user"}]})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "users can write rows");
+
+    call(
+        &t,
+        "POST",
+        "/v1/collections",
+        Some(&ta),
+        Some(json!({"name":"secret","columns":[{"name":"v","type":"json"}]})),
+    )
+    .await;
+    let (_, k) = call(
+        &t,
+        "POST",
+        "/v1/keys",
+        Some(&ta),
+        Some(json!({"name":"reader","scopes":["databases_read"],"allowed_database_ids":[c["id"]]})),
+    )
+    .await;
+    let key = k["key"].as_str().unwrap();
+    let (_, list) = call(&t, "GET", "/v1/collections", Some(key), None).await;
+    let names: Vec<&str> = list
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, vec!["tasks"], "allow-list hides other tables");
+    let (s, _) = call(&t, "GET", "/v1/collections/secret/rows", Some(key), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/collections/tasks/rows",
+        Some(key),
+        Some(json!({"rows":[{"title":"x"}]})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "read-only key");
+
+    let tc = register(&t, "c@x.io").await;
+    let (s, _) = req(
+        &t,
+        "GET",
+        "/v1/collections/tasks/rows",
+        Some(&tc),
+        None,
+        &[("x-aero-workspace", wid.as_str())],
+    )
+    .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "outsider");
+}
+
+async fn rpc(t: &T, key: &str, id: i64, method: &str, params: Value) -> Value {
+    let (s, v) = call(
+        t,
+        "POST",
+        "/v1/mcp",
+        Some(key),
+        Some(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{method}: {v}");
+    assert_eq!(v["id"], id);
+    v
+}
+
+async fn tool(t: &T, key: &str, name: &str, args: Value) -> Value {
+    let v = rpc(
+        t,
+        key,
+        7,
+        "tools/call",
+        json!({"name": name, "arguments": args}),
+    )
+    .await;
+    v["result"].clone()
+}
+
+/// Phase 2 gate: an agent connects over MCP, creates a table, deploys and runs a function.
+#[tokio::test]
+async fn mcp_agent_end_to_end() {
+    let Some(t) = app().await else { return };
+    let ta = register(&t, "a@x.io").await;
+    let (_, k) = call(&t, "POST", "/v1/keys", Some(&ta), Some(json!({"name":"agent","scopes":[
+        "mcp_connect","databases_read","databases_write","functions_list","functions_write","executions_write"]}))).await;
+    let key = k["key"].as_str().unwrap();
+
+    let init = rpc(&t, key, 1, "initialize", json!({"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}})).await;
+    assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(init["result"]["serverInfo"]["name"], "aerobaas");
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/mcp",
+        Some(key),
+        Some(json!({"jsonrpc":"2.0","method":"notifications/initialized"})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::ACCEPTED);
+    let list = rpc(&t, key, 2, "tools/list", json!({})).await;
+    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 8);
+
+    let r = tool(&t, key, "create_table", json!({"name":"leads","columns":[{"name":"email","type":"string","required":true},{"name":"score","type":"integer"}]})).await;
+    assert_eq!(r["isError"], false, "{r}");
+    let r = tool(
+        &t,
+        key,
+        "insert_rows",
+        json!({"table":"leads","rows":[{"email":"x@y.io","score":7}]}),
+    )
+    .await;
+    assert_eq!(r["structuredContent"]["inserted"], 1, "{r}");
+    let r = tool(
+        &t,
+        key,
+        "query_rows",
+        json!({"table":"leads","where":{"score":7}}),
+    )
+    .await;
+    assert_eq!(r["structuredContent"]["total"], 1, "{r}");
+
+    let r = tool(
+        &t,
+        key,
+        "deploy_function",
+        json!({"name":"echo","wasm_base64": b64(ECHO_WAT)}),
+    )
+    .await;
+    assert_eq!(r["isError"], false, "{r}");
+    let r = tool(
+        &t,
+        key,
+        "run_function",
+        json!({"function":"echo","payload":{"lead":"x@y.io"}}),
+    )
+    .await;
+    assert_eq!(
+        r["structuredContent"]["output"],
+        json!({"lead":"x@y.io"}),
+        "{r}"
+    );
+    let r = tool(&t, key, "list_functions", json!({})).await;
+    assert_eq!(
+        r["structuredContent"]["functions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let r = tool(&t, key, "query_logs", json!({})).await;
+    assert_eq!(r["isError"], true, "logs need the admin scope: {r}");
+    let r = tool(
+        &t,
+        key,
+        "insert_rows",
+        json!({"table":"leads","rows":[{"score":1}]}),
+    )
+    .await;
+    assert_eq!(r["isError"], true, "validation error is a tool error: {r}");
+
+    let v = rpc(&t, key, 3, "nope", json!({})).await;
+    assert_eq!(v["error"]["code"], -32601);
+    let v = rpc(
+        &t,
+        key,
+        4,
+        "tools/call",
+        json!({"name":"rm_rf","arguments":{}}),
+    )
+    .await;
+    assert_eq!(v["error"]["code"], -32602);
+
+    let (_, plain) = call(
+        &t,
+        "POST",
+        "/v1/keys",
+        Some(&ta),
+        Some(json!({"name":"no-mcp","scopes":["databases_read"]})),
+    )
+    .await;
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/mcp",
+        Some(plain["key"].as_str().unwrap()),
+        Some(json!({"jsonrpc":"2.0","id":1,"method":"ping"})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "mcp.connect scope required");
+    let (s, _) = call(
+        &t,
+        "POST",
+        "/v1/mcp",
+        None,
+        Some(json!({"jsonrpc":"2.0","id":1,"method":"ping"})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    let (s, _) = call(&t, "GET", "/v1/mcp", Some(key), None).await;
+    assert_eq!(s, StatusCode::METHOD_NOT_ALLOWED);
+
+    let (_, audit) = call(
+        &t,
+        "GET",
+        "/v1/audit/events?actor_type=ai_agent",
+        Some(&ta),
+        None,
+    )
+    .await;
+    let actions: Vec<&str> = audit["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["action"].as_str().unwrap())
+        .collect();
+    for a in [
+        "collection_created",
+        "function_deployed",
+        "function_executed",
+    ] {
+        assert!(
+            actions.contains(&a),
+            "{a} by the agent missing: {actions:?}"
+        );
+    }
+}
+
+/// Runs the Rust example (examples/functions/hello-rust) when CI has built it.
+#[tokio::test]
+async fn rust_example_function() {
+    let Ok(path) = std::env::var("AERO_EXAMPLE_WASM") else {
+        eprintln!("skipped: AERO_EXAMPLE_WASM not set");
+        return;
+    };
+    let Some(t) = app().await else { return };
+    let ta = register(&t, "a@x.io").await;
+    use base64::Engine as _;
+    let wasm = base64::engine::general_purpose::STANDARD.encode(std::fs::read(path).unwrap());
+    let (s, d) = call(
+        &t,
+        "POST",
+        "/v1/functions",
+        Some(&ta),
+        Some(json!({"name":"hello","wasm_base64": wasm})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{d}");
+    let id = d["function_id"].as_str().unwrap();
+    let (s, v) = call(
+        &t,
+        "POST",
+        &format!("/v1/functions/{id}/execute"),
+        Some(&ta),
+        Some(json!({"payload": {"name": "Aurora"}})),
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["output"]["message"], "Hello, Aurora!");
+    assert_eq!(v["logs"], "greeting Aurora\n");
 }

@@ -7,7 +7,6 @@ use aero_chat::{ChatService, ChatStore};
 use aero_config::AeroConfig;
 use aero_db::DbClient;
 use aero_keys::KeyManager;
-use aero_mcp_server::McpServer;
 use aero_metrics::{MetricsCollector, MetricsHistoryStore};
 use aero_protocol::AeroResult;
 use aero_realtime::EventBroadcaster;
@@ -28,7 +27,6 @@ pub struct AeroApp {
     pub wasm_runtime: Arc<WasmRuntime>,
     pub ai_engine: Arc<AiEngine>,
     pub key_manager: Arc<KeyManager>,
-    pub mcp_server: Arc<McpServer>,
     pub remediation: Arc<RemediationService>,
     pub skill_registry: Arc<SkillRegistry>,
     pub auth: Arc<AuthService>,
@@ -49,11 +47,6 @@ impl AeroApp {
         let wasm_runtime = Arc::new(WasmRuntime::new(config.wasm.clone())?);
         let ai_engine = Arc::new(AiEngine::new(config.ai.clone()).await?);
         let key_manager = Arc::new(KeyManager::new(db.clone(), config.clone()));
-        let mcp_server = Arc::new(McpServer::new(
-            db.clone(),
-            ai_engine.clone(),
-            wasm_runtime.clone(),
-        ));
         let remediation = Arc::new(RemediationService::new(config.clone()));
         let skill_registry = Arc::new(SkillRegistry::new(db.clone()));
         let auth = Arc::new(AuthService::new(
@@ -73,7 +66,6 @@ impl AeroApp {
             wasm_runtime,
             ai_engine,
             key_manager,
-            mcp_server,
             remediation,
             skill_registry,
             auth,

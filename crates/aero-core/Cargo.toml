@@ -12,8 +12,8 @@ aero-crypto = { path = "../aero-crypto" }
 aero-keys = { path = "../aero-keys" }
 aero-wasm-runtime = { path = "../aero-wasm-runtime" }
 aero-ai-engine = { path = "../aero-ai-engine" }
-aero-mcp-server = { path = "../aero-mcp-server" }
 aero-db = { path = "../aero-db" }
+base64 = { workspace = true }
 aero-remediation = { path = "../aero-remediation" }
 aero-skills = { path = "../aero-skills" }
 aero-auth = { path = "../aero-auth" }
@@ -37,4 +37,5 @@ async-trait = { workspace = true }
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+wat = { workspace = true }
 sqlx = { workspace = true }

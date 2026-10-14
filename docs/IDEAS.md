@@ -18,14 +18,14 @@ The originals stay unchanged as reference. When this file and the originals disa
 
 | # | Idea (source) | Status | Phase / notes |
 |---|---|---|---|
-| A1 | Wasm runtime on Wasmtime, cold start < 50 ms (spec 2.A) | ✅ keep | Phase 2. Measure p50/p95 with a benchmark in CI. |
-| A2 | Memory and CPU throttling per sandbox (2.A) | ✅ keep | Phase 2. Uses Wasmtime fuel and memory limits. |
+| A1 | Wasm runtime on Wasmtime, cold start < 50 ms (spec 2.A) | ✅ done | Phase 2a. Small module: ~8 ms first run, ~0.1–0.2 ms warm (`timings` test). Re-measure with real-size modules before marketing. |
+| A2 | Memory and CPU throttling per sandbox (2.A) | ✅ done | Phase 2a: memory limit, fuel budget, wall-clock timeout (tested). |
 | B1 | Keys API 2.0: scopes, per-key function allow-list, `functions.list()` filtered (2.B) | ✅ done | Phase 1 (14 Oct 2026). Tested in `key_scopes_allow_list_and_credits`. |
 | B2 | Real-time credits, key turns off at 0 (2.B) | ✅ done | Phase 1: atomic in PostgreSQL, 1 credit per request. Linking credits to the unified licensing service is Phase 5. |
-| C1 | Built-in MCP server: read schema, create collections, generate and deploy functions (2.C) | ✅ keep | Phase 2. JSON-RPC over WebSocket, 5 tools first. |
+| C1 | Built-in MCP server: read schema, create collections, generate and deploy functions (2.C) | ✅ done | Phase 2a: Streamable HTTP (the standard MCP transport, not WebSocket), 8 tools. Code generation waits for the AI layer (2b). |
 | C2 | Lock so two agents can't change the same table or function at once (2.C) | ✅ keep, in Rust | Phase 4. Postgres advisory locks instead of Erlang. |
-| D1 | Hazmat "shadow environment" before deploy (2.D) | ✅ keep | Phase 2. First test run happens in a quarantined sandbox with no network. |
-| D2 | Egress filtering: block unknown outbound IPs, log a security event (2.D) | ✅ keep | Phase 2. Host allow-list enforced by the runtime's network shim. |
+| D1 | Hazmat "shadow environment" before deploy (2.D) | 🟡 partly | Phase 2a: every module is compiled and its imports checked before it is stored; every run is sandboxed with no network. A separate trial run before deploy is not done. |
+| D2 | Egress filtering: block unknown outbound IPs, log a security event (2.D) | 🟡 partly | Phase 2a: functions have no network at all. An HTTP host function with a per-function allow-list comes later. |
 | E1 | Embedded SLM (Qwen-2.5-Coder 1.5B via Candle) in the binary (AI add-on) | 🟡 later | Phase 2 starts with an OpenAI-compatible endpoint (Ollama, OpenRouter, Gemini, MiMo). Embedded Candle comes after as an "air-gapped" option. Memory target: ≤ 2 GB idle with the model. |
 | E2 | `Aero.ai.generateText()` callable from inside Wasm (AI add-on) | ✅ keep | Phase 2. Host function exposed to sandboxes. |
 | E3 | Automatic index creation from slow queries (AI add-on) | 🟡 later | After Phase 5. Starts as "suggest index" with human approval, never fully automatic for regulated clients. |

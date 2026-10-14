@@ -4,7 +4,7 @@ A backend for AI agents: workspaces and roles, scoped API keys, sandboxed functi
 
 The admin UI is the **SovereignBaaS Admin** (engine adapter in Phase 3). Plan and status: **[ROADMAP.md](ROADMAP.md)**.
 
-## What is real today (Phase 1)
+## What is real today (Phase 2a)
 
 | Area | Status |
 |---|---|
@@ -16,9 +16,10 @@ The admin UI is the **SovereignBaaS Admin** (engine adapter in Phase 3). Plan an
 | Audit log | ✅ sign-ins, workspace, member, key, function and scan events; live stream over WebSocket |
 | SovereignBaaS admin API (`/api/*`) | ✅ me, workspaces, members, invites, inspector — see below |
 | Dependency scan (package.json, Cargo.toml, go.mod, pyproject) | ✅ against a small built-in CVE list |
-| Wasm functions | 🟡 modules stored per workspace; execute returns a placeholder (Wasmtime in Phase 2) |
-| AI generate / chat | 🟡 stub text (real models in Phase 2); chat history is in memory |
-| MCP | 🟡 WebSocket accepted for authorised callers, protocol not implemented (Phase 2) |
+| Wasm functions | ✅ Wasmtime sandbox: WASI preview 1 modules, checked at deploy, memory/CPU/time limits, no files or network; execution history |
+| Tables | ✅ per-workspace tables with typed columns, validated rows (JSON in PostgreSQL), filters |
+| MCP for AI agents | ✅ `POST /v1/mcp` (Streamable HTTP): 8 tools — tables, functions, logs — limited by the key's scopes |
+| AI generate / chat | 🟡 stub text (real models in Phase 2b); chat history is in memory |
 | Sandbox metrics | 🟡 endpoints exist (platform admins only), not fed yet (Phase 3) |
 
 ## Run
@@ -29,6 +30,31 @@ docker compose up -d            # PostgreSQL + AeroBaaS → http://localhost:808
 ```
 
 Without Docker: start PostgreSQL, set `AERO_DATABASE_URL` and `AERO_JWT_SECRET`, then `cargo run --release --bin aero -- serve`.
+
+## Functions
+
+A function is a WASI preview 1 module (e.g. Rust built with `--target wasm32-wasip1`): it reads its JSON payload from **stdin**, writes the result to **stdout**, and anything on **stderr** comes back as `logs`. Example: `examples/functions/hello-rust`.
+
+```bash
+cargo build --release --target wasm32-wasip1        # in your function's folder
+curl -X POST $AERO_URL/v1/functions -H "Authorization: Bearer $AERO_TOKEN" -H 'content-type: application/json' \
+  -d "{\"name\":\"hello\",\"wasm_base64\":\"$(base64 -w0 target/wasm32-wasip1/release/hello-rust.wasm)\"}"
+curl -X POST $AERO_URL/v1/functions/<id>/execute -H "Authorization: Bearer $AERO_TOKEN" -H 'content-type: application/json' \
+  -d '{"payload":{"name":"Aurora"}}'
+```
+
+Limits per function: memory (`memory_limit_mb`, default 128), time (`timeout_ms`, default 30 s) and a CPU budget tied to the time limit. A stopped run answers **422** with `status` = `timeout`, `out_of_fuel`, `out_of_memory` or `error`. Measured on the test machine with a small module: about 8 ms for the first run (compile) and about 0.1–0.2 ms per run after that (`cargo test --release -p aero-wasm-runtime timings -- --nocapture`).
+
+## MCP (for AI agents)
+
+Create a key with `mcp_connect` plus the scopes the agent may use (`databases_read`, `databases_write`, `functions_list`, `functions_write`, `executions_write`, `admin` for logs). Then add the server to the agent, for example:
+
+```json
+{ "mcpServers": { "aerobaas": { "type": "http", "url": "https://YOUR-HOST/v1/mcp",
+  "headers": { "Authorization": "Bearer aero_..." } } } }
+```
+
+Tools: `list_tables`, `create_table`, `insert_rows`, `query_rows`, `list_functions`, `deploy_function`, `run_function`, `query_logs`. Every call costs one credit and is recorded in the audit log as an AI-agent action.
 
 ## Authentication
 

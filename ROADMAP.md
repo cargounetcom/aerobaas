@@ -22,12 +22,18 @@ Each phase ends with its tests green. Gaps are tracked as `#[ignore = "Phase …
 - Moved: `/api/workspaces/{ws}/ai/*` → Phase 2 (needs the real AI layer); running the SovereignBaaS admin e2e suite → Phase 3 (needs the `engine: aero` sign-in adapter)
 - Later: refresh-token revocation (sign-out everywhere), email verification, password reset
 
-## Phase 2 — the core value (weeks 3–5)
-- [ ] Wasm runtime on Wasmtime: module validation, memory/CPU/time limits, egress allow-list, cold-start benchmark
+## Phase 2a — functions and MCP ✅ (14 Oct 2026)
+- [x] Wasm runtime on Wasmtime 49: module checked at deploy (valid Wasm, WASI preview 1 imports only, `() -> ()` entrypoint), memory/CPU (fuel)/wall-clock limits, no files, env or network; compiled modules cached; execution history (IDEAS A1, A2, D1, D2)
+- [x] Cold/warm start measured (small module: ~8 ms first run, ~0.1–0.2 ms after) — `timings` test
+- [x] Tables: typed columns, validated JSON rows, equality filters; key allow-lists (`allowed_database_ids`)
+- [x] MCP server: Streamable HTTP (`POST /v1/mcp`), 8 tools, per-key scopes, audited as AI-agent actions (IDEAS C1)
+- Gate met: `mcp_agent_end_to_end` — an agent creates a table, inserts and queries rows, deploys and runs a function
+- Later: host HTTP for functions with a per-function egress allow-list; environment variables/secrets for functions; larger-module benchmark
+
+## Phase 2b — AI (next)
 - [ ] AI via OpenAI-compatible endpoint (Ollama, OpenRouter, Gemini, MiMo) with streaming; embedded Candle later as an option
 - [ ] Admin AI routes `/api/workspaces/{ws}/ai/providers|models|chat` (encrypted provider keys, same shapes as SovereignBaaS); chat history in PostgreSQL
-- [ ] MCP server: JSON-RPC over WebSocket, tools: read schema, create table, deploy/run function, query logs; per-agent key scopes
-- Gate: an agent connects over MCP, creates a table, deploys and runs a function
+- [ ] `Aero.ai.generateText()` host function for Wasm (IDEAS E2)
 
 ## Phase 3 — product shell (weeks 5–6)
 - [ ] SovereignBaaS Admin `engine: aero` adapter (sign-in against AeroBaaS) + AeroBaaS-only pages (Functions, Agent keys, Sandbox metrics, Dependency scan, live audit log)

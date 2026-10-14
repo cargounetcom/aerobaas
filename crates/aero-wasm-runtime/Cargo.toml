@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
 aero-protocol = { path = "../aero-protocol" }
 aero-config = { path = "../aero-config" }
 aero-remediation = { path = "../aero-remediation" }
@@ -19,3 +21,6 @@ chrono = { workspace = true }
 parking_lot = { workspace = true }
 async-trait = { workspace = true }
 sha2 = { workspace = true }
+
+[dev-dependencies]
+wat = { workspace = true }

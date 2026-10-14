@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
+exclude = ["examples"]
 members = [
     "crates/aero-core",
     "crates/aero-wasm-runtime",
     "crates/aero-keys",
     "crates/aero-ai-engine",
-    "crates/aero-mcp-server",
     "crates/aero-db",
     "crates/aero-remediation",
     "crates/aero-skills",
@@ -50,6 +50,9 @@ rand = "0.8"
 clap = { version = "4.5", features = ["derive"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
 argon2 = "0.5"
+wasmtime = "49"
+wasmtime-wasi = "49"
+wat = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]

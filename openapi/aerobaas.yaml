@@ -35,6 +35,8 @@ tags:
     description: Dependency scanning, auto-patching, compliance logging
   - name: Skills
     description: Skill pack management and auto-detect deployment
+  - name: Tables
+    description: Workspace tables with typed columns (rows stored as JSON)
   - name: MCP
     description: Model Context Protocol server for AI agent integration
   - name: AI
@@ -1023,16 +1025,143 @@ paths:
           description: Skill pack list
 
   /v1/mcp:
+    post:
+      tags: [MCP]
+      summary: MCP server (Streamable HTTP, JSON responses)
+      description: |
+        One JSON-RPC 2.0 message per POST: initialize, ping, tools/list, tools/call.
+        Tools: list_tables, create_table, insert_rows, query_rows, list_functions,
+        deploy_function, run_function, query_logs. Keys need the `mcp_connect` scope plus the
+        scope of each tool. Notifications get 202 with no body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { type: string, const: "2.0" }
+                id: {}
+                method: { type: string }
+                params: { type: object }
+      responses:
+        '200':
+          description: JSON-RPC response
+        '202':
+          description: Notification accepted
+        '403':
+          description: Key lacks the mcp_connect scope
     get:
       tags: [MCP]
-      summary: MCP WebSocket endpoint
-      description: |
-        WebSocket upgrade for Model Context Protocol communication.
-        AI agents connect here to manage DB schema, generate functions,
-        and deploy code.
+      summary: Not offered (no server-to-client stream)
       responses:
-        '101':
-          description: WebSocket upgrade
+        '405':
+          description: Use POST
+
+  /v1/functions/{id}/executions:
+    get:
+      tags: [Functions]
+      summary: Recent executions (status, duration, fuel, memory, cold start)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+      responses:
+        '200':
+          description: Executions, newest first
+
+  /v1/collections:
+    get:
+      tags: [Tables]
+      summary: List tables (scope databases_read)
+      responses:
+        '200':
+          description: Tables with columns and row counts
+    post:
+      tags: [Tables]
+      summary: Create a table (Manager+ / scope databases_write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, columns]
+              properties:
+                name: { type: string, pattern: "^[a-z][a-z0-9_]{0,62}$" }
+                columns:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, type]
+                    properties:
+                      name: { type: string }
+                      type: { type: string, enum: [string, integer, number, boolean, datetime, json] }
+                      required: { type: boolean }
+      responses:
+        '200':
+          description: Created table
+        '409':
+          description: Name taken
+
+  /v1/collections/{name}:
+    get:
+      tags: [Tables]
+      summary: One table
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Table
+    delete:
+      tags: [Tables]
+      summary: Delete a table and its rows (Manager+ / databases_write)
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '204':
+          description: Deleted
+
+  /v1/collections/{name}/rows:
+    get:
+      tags: [Tables]
+      summary: Query rows, newest first
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: where, in: query, description: 'JSON equality filter, e.g. {"done":true}', schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { name: offset, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: '{rows, total}'
+    post:
+      tags: [Tables]
+      summary: Insert 1–500 rows (validated against the columns; all or nothing)
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rows]
+              properties:
+                rows: { type: array, items: { type: object } }
+      responses:
+        '200':
+          description: '{inserted, rows}'
+
+  /v1/collections/{name}/rows/{id}:
+    delete:
+      tags: [Tables]
+      summary: Delete one row
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: Deleted
 
   /v1/ai/generate:
     post:

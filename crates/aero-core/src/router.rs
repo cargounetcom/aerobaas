@@ -4,15 +4,14 @@
 
 use std::sync::Arc;
 
-use aero_keys::KeyManager;
-use aero_protocol::audit::{ActorType, AuditAction, AuditLogQuery, EventSeverity};
+use aero_protocol::audit::{AuditAction, AuditLogQuery, EventSeverity};
 use aero_protocol::keys::Scope;
 use aero_protocol::tenancy::Role;
 use aero_protocol::AeroError;
 use axum::extract::{DefaultBodyLimit, Path, Query, State, WebSocketUpgrade};
 use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use axum::{middleware, Json, Router};
 use serde_json::{json, Value};
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -23,14 +22,14 @@ use crate::app::AeroApp;
 use crate::audit::{self, Entry, Who};
 use crate::auth::{ClientInfo, Ctx, UserAuth};
 use crate::error::{AeroApiError, ApiResult};
-use crate::{admin_api, inspector};
+use crate::{admin_api, collections, functions, inspector, mcp};
 
 #[derive(Clone)]
 pub struct AppState {
     pub app: Arc<AeroApp>,
 }
 
-/// Largest JSON body for a function deploy (`wasm_bytes` is a JSON number array, ~4× the module).
+/// Largest JSON body for a function deploy (`wasm_bytes` as a JSON number array is ~4× the module).
 const DEPLOY_BODY_LIMIT: usize = 48 * 1024 * 1024;
 const BODY_LIMIT: usize = 1024 * 1024;
 
@@ -72,6 +71,18 @@ pub fn build_router(app: &Arc<AeroApp>) -> Router {
         )
         .route("/functions/:id", get(get_function).delete(delete_function))
         .route("/functions/:id/execute", post(execute_function))
+        .route("/functions/:id/executions", get(function_executions))
+        // Tables
+        .route(
+            "/collections",
+            get(list_collections).post(create_collection),
+        )
+        .route(
+            "/collections/:name",
+            get(get_collection).delete(delete_collection),
+        )
+        .route("/collections/:name/rows", get(query_rows).post(insert_rows))
+        .route("/collections/:name/rows/:id", delete(delete_row))
         // Remediation
         .route("/remediation/scan", post(scan_dependencies))
         .route("/remediation/remediate", post(remediate))
@@ -79,7 +90,12 @@ pub fn build_router(app: &Arc<AeroApp>) -> Router {
         .route("/skills", get(list_skills).post(install_skill))
         .route("/skills/:id", get(get_skill))
         // MCP
-        .route("/mcp", get(mcp_ws_handler))
+        .route(
+            "/mcp",
+            post(mcp::post)
+                .layer(DefaultBodyLimit::max(DEPLOY_BODY_LIMIT))
+                .get(mcp::get_not_allowed),
+        )
         // AI
         .route("/ai/generate", post(ai_generate))
         // Chat
@@ -545,77 +561,22 @@ async fn verify_key(
 
 // === Functions ===
 
-/// Keys with a function allow-list only see the functions on it (404 for the rest).
-fn function_visible(ctx: &Ctx, id: Uuid) -> ApiResult<()> {
-    match ctx.key() {
-        Some(k) if !KeyManager::function_allowed(k, id) => {
-            Err(AeroError::NotFound(format!("Function {id} not found")).into())
-        }
-        _ => Ok(()),
-    }
-}
-
 async fn deploy_function(
     State(state): State<AppState>,
     ctx: Ctx,
     client: ClientInfo,
     Json(req): Json<aero_protocol::functions::DeployRequest>,
 ) -> ApiResult<Json<aero_protocol::functions::DeployResponse>> {
-    ctx.require(Role::User, Scope::FunctionsWrite)?;
-    let (function, resp) = state
-        .app
-        .wasm_runtime
-        .deploy(ctx.ws, &req, &state.app.remediation)
-        .await?;
-    state
-        .app
-        .db
-        .store_function(&function, &req.wasm_bytes, ctx.user_id())
-        .await?;
-    let (action, severity) = if resp.quarantine_passed {
-        (AuditAction::FunctionDeployed, EventSeverity::Info)
-    } else {
-        (AuditAction::FunctionBlocked, EventSeverity::Security)
-    };
-    audit::record(
-        &state.app,
-        &client,
-        Entry::new(Some(ctx.ws), Who::from(&ctx), action, "function")
-            .id(function.id)
-            .details(json!({ "name": function.name, "wasm_hash": function.wasm_hash }))
-            .severity(severity),
-    )
-    .await;
-    if !resp.quarantine_passed {
-        audit::record(
-            &state.app,
-            &client,
-            Entry::new(
-                Some(ctx.ws),
-                Who::module(ActorType::HazmatModule, "hazmat"),
-                AuditAction::HazmatViolation,
-                "function",
-            )
-            .id(function.id)
-            .severity(EventSeverity::Security),
-        )
-        .await;
-    }
-    Ok(Json(resp))
+    Ok(Json(
+        functions::deploy(&state.app, &ctx, &client, req).await?,
+    ))
 }
 
 async fn list_functions(
     State(state): State<AppState>,
     ctx: Ctx,
 ) -> ApiResult<Json<Vec<aero_protocol::functions::Function>>> {
-    if ctx.require(Role::User, Scope::FunctionsList).is_err() {
-        ctx.require(Role::User, Scope::FunctionsRead)?;
-    }
-    let mut funcs = state.app.db.list_functions(ctx.ws).await?;
-    if let Some(k) = ctx.key() {
-        funcs.retain(|f| KeyManager::function_allowed(k, f.id));
-    }
-    Ok(Json(funcs))
+    Ok(Json(functions::list(&state.app, &ctx).await?))
 }
 
 async fn get_function(
@@ -623,9 +584,7 @@ async fn get_function(
     ctx: Ctx,
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<aero_protocol::functions::Function>> {
-    ctx.require(Role::User, Scope::FunctionsRead)?;
-    function_visible(&ctx, id)?;
-    Ok(Json(state.app.db.get_function(ctx.ws, id).await?))
+    Ok(Json(functions::get(&state.app, &ctx, id).await?))
 }
 
 async fn delete_function(
@@ -634,56 +593,138 @@ async fn delete_function(
     client: ClientInfo,
     Path(id): Path<Uuid>,
 ) -> ApiResult<StatusCode> {
-    ctx.require(Role::Manager, Scope::FunctionsWrite)?;
-    function_visible(&ctx, id)?;
-    if !state.app.db.delete_function(ctx.ws, id).await? {
-        return Err(AeroError::NotFound(format!("Function {id} not found")).into());
-    }
-    audit::record(
-        &state.app,
-        &client,
-        Entry::new(
-            Some(ctx.ws),
-            Who::from(&ctx),
-            AuditAction::FunctionDeleted,
-            "function",
-        )
-        .id(id),
-    )
-    .await;
+    functions::delete(&state.app, &ctx, &client, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// 200 with the output when the function succeeds; 422 with the same body plus `error` when the
+/// sandbox stopped it (timeout, CPU or memory limit, trap, non-zero exit).
 async fn execute_function(
     State(state): State<AppState>,
     ctx: Ctx,
     client: ClientInfo,
     Path(id): Path<Uuid>,
     Json(req): Json<aero_protocol::functions::ExecuteRequest>,
-) -> ApiResult<Json<aero_protocol::functions::ExecuteResponse>> {
-    ctx.require(Role::User, Scope::ExecutionsWrite)?;
-    function_visible(&ctx, id)?;
-    let function = state.app.db.get_function(ctx.ws, id).await?;
-    let wasm = state.app.db.get_function_wasm(ctx.ws, id).await?;
-    let resp = state
-        .app
-        .wasm_runtime
-        .execute(&function, &wasm, req.payload)
-        .await?;
-    audit::record(
-        &state.app,
-        &client,
-        Entry::new(
-            Some(ctx.ws),
-            Who::from(&ctx),
-            AuditAction::FunctionExecuted,
-            "function",
-        )
-        .id(id)
-        .details(json!({ "execution_id": resp.execution_id, "duration_ms": resp.duration_ms })),
-    )
-    .await;
-    Ok(Json(resp))
+) -> ApiResult<axum::response::Response> {
+    let (resp, error) = functions::execute(&state.app, &ctx, &client, id, req.payload).await?;
+    let mut body = serde_json::to_value(&resp).unwrap_or_default();
+    Ok(match error {
+        None => Json(body).into_response(),
+        Some(e) => {
+            body["error"] = json!(e);
+            (StatusCode::UNPROCESSABLE_ENTITY, Json(body)).into_response()
+        }
+    })
+}
+
+#[derive(serde::Deserialize)]
+struct LimitQuery {
+    limit: Option<i64>,
+}
+
+async fn function_executions(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    Path(id): Path<Uuid>,
+    Query(q): Query<LimitQuery>,
+) -> ApiResult<Json<Vec<Value>>> {
+    Ok(Json(
+        functions::executions(&state.app, &ctx, id, q.limit.unwrap_or(50)).await?,
+    ))
+}
+
+// === Tables (collections) ===
+
+async fn list_collections(
+    State(state): State<AppState>,
+    ctx: Ctx,
+) -> ApiResult<Json<Vec<collections::Collection>>> {
+    Ok(Json(collections::list(&state.app, &ctx).await?))
+}
+
+async fn create_collection(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    client: ClientInfo,
+    Json(req): Json<collections::CreateCollection>,
+) -> ApiResult<Json<collections::Collection>> {
+    Ok(Json(
+        collections::create(&state.app, &ctx, &client, req).await?,
+    ))
+}
+
+async fn get_collection(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    Path(name): Path<String>,
+) -> ApiResult<Json<collections::Collection>> {
+    Ok(Json(collections::get(&state.app, &ctx, &name).await?))
+}
+
+async fn delete_collection(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    client: ClientInfo,
+    Path(name): Path<String>,
+) -> ApiResult<StatusCode> {
+    collections::delete(&state.app, &ctx, &client, &name).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(serde::Deserialize)]
+struct InsertBody {
+    rows: Vec<Value>,
+}
+
+async fn insert_rows(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    Path(name): Path<String>,
+    Json(body): Json<InsertBody>,
+) -> ApiResult<Json<Value>> {
+    let rows = collections::insert(&state.app, &ctx, &name, &body.rows).await?;
+    Ok(Json(json!({ "inserted": rows.len(), "rows": rows })))
+}
+
+#[derive(serde::Deserialize)]
+struct RowsQuery {
+    limit: Option<i64>,
+    offset: Option<i64>,
+    /// JSON object, e.g. `{"status":"open"}`
+    #[serde(rename = "where")]
+    filter: Option<String>,
+}
+
+async fn query_rows(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    Path(name): Path<String>,
+    Query(q): Query<RowsQuery>,
+) -> ApiResult<Json<Value>> {
+    let filter = match q.filter.as_deref().filter(|s| !s.is_empty()) {
+        Some(f) => Some(
+            serde_json::from_str::<serde_json::Map<String, Value>>(f)
+                .map_err(|_| AeroApiError::BadRequest("`where` must be a JSON object".into()))?,
+        ),
+        None => None,
+    };
+    let rq = collections::RowQuery {
+        filter,
+        limit: q.limit,
+        offset: q.offset,
+    };
+    Ok(Json(
+        collections::query(&state.app, &ctx, &name, &rq).await?,
+    ))
+}
+
+async fn delete_row(
+    State(state): State<AppState>,
+    ctx: Ctx,
+    Path((name, id)): Path<(String, Uuid)>,
+) -> ApiResult<StatusCode> {
+    collections::delete_row(&state.app, &ctx, &name, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // === Remediation ===
@@ -778,19 +819,6 @@ async fn install_skill(
     )
     .await;
     Ok(Json(skill))
-}
-
-// === MCP ===
-
-async fn mcp_ws_handler(
-    State(state): State<AppState>,
-    ctx: Ctx,
-    ws: WebSocketUpgrade,
-) -> ApiResult<impl IntoResponse> {
-    ctx.require(Role::User, Scope::McpConnect)?;
-    Ok(ws.on_upgrade(
-        move |socket| async move { state.app.mcp_server.handle_connection(socket).await },
-    ))
 }
 
 // === AI ===
