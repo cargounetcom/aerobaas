@@ -3,19 +3,24 @@ info:
   title: AeroBaaS API
   version: 0.1.0
   description: |
-    Agent-Native Backend-as-a-Service API.
-    
-    A next-generation serverless backend platform optimized for autonomous AI agents
-    and code isolation. Built with Rust, WebAssembly, and Erlang/OTP.
+    Agent-native Backend-as-a-Service API (Rust, PostgreSQL, WebAssembly).
+
+    Authentication: every endpoint needs a sign-in token (`Authorization: Bearer <JWT>`) or an
+    API key (`Authorization: Bearer aero_…` or `X-Aero-Key`), except those marked `security: []`.
+    People act in their active workspace (`X-Aero-Workspace` header, else the token's workspace);
+    API keys act in the workspace that owns them and spend one credit per request.
+
+    The SovereignBaaS admin contract (`/api/*`) is documented in the README.
   license:
-    name: AGPL-3.0
-    url: https://www.gnu.org/licenses/agpl-3.0.html
+    name: Proprietary — Aurora Ember Cyber Bio Lab
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
 
 servers:
   - url: http://localhost:8080
     description: Local development
-  - url: https://api.aerobaas.com
-    description: AeroBaaS Cloud
 
 tags:
   - name: Auth
@@ -48,7 +53,11 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      bearerFormat: JWT or aero_ API key
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-Aero-Key
 
   schemas:
     Error:
@@ -56,7 +65,10 @@ components:
       properties:
         error:
           type: string
-        code:
+          description: Machine-readable code (bad_request, unauthorized, forbidden, not_found, conflict, too_many_requests, credits_exhausted, …)
+        message:
+          type: string
+        status:
           type: integer
 
     RegisterRequest:
@@ -475,6 +487,7 @@ components:
 paths:
   /health:
     get:
+      security: []
       tags: [Health]
       summary: Health check
       responses:
@@ -483,6 +496,7 @@ paths:
 
   /v1/auth/register:
     post:
+      security: []
       tags: [Auth]
       summary: Register a new user
       requestBody:
@@ -507,6 +521,7 @@ paths:
 
   /v1/auth/login:
     post:
+      security: []
       tags: [Auth]
       summary: Login with email and password
       requestBody:
@@ -533,6 +548,7 @@ paths:
 
   /v1/auth/refresh:
     post:
+      security: []
       tags: [Auth]
       summary: Refresh JWT token
       requestBody:
@@ -866,6 +882,7 @@ paths:
 
   /v1/keys/verify:
     post:
+      security: []
       tags: [Keys]
       summary: Verify an API key (returns scopes and credit balance)
       requestBody:
@@ -1004,26 +1021,6 @@ paths:
       responses:
         '200':
           description: Skill pack list
-
-  /v1/deploy/auto-detect:
-    post:
-      tags: [Skills]
-      summary: Auto-detect framework and deploy
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [workspace_path]
-              properties:
-                workspace_path:
-                  type: string
-      responses:
-        '200':
-          description: Deployment result
 
   /v1/mcp:
     get:

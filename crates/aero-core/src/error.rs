@@ -5,6 +5,8 @@ use serde_json::json;
 
 use aero_protocol::AeroError;
 
+/// API error. Body: `{"error": "<code>", "message": "<text>", "status": <http status>}`
+/// (same `error`/`message` fields as the SovereignBaaS admin API).
 pub enum AeroApiError {
     Aero(AeroError),
     BadRequest(String),
@@ -24,11 +26,26 @@ impl From<anyhow::Error> for AeroApiError {
 
 impl IntoResponse for AeroApiError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            Self::Aero(e) => (e.status_code(), e.to_string()),
-            Self::BadRequest(msg) => (400, msg),
+        let e = match self {
+            Self::Aero(e) => e,
+            Self::BadRequest(m) => AeroError::BadRequest(m),
         };
-        let body = Json(json!({ "error": message, "code": status }));
+        let status = e.status_code();
+        let message = match &e {
+            // Never leak internals to clients; the details are in the server log.
+            AeroError::Internal(detail) => {
+                tracing::error!(error = %detail, "internal error");
+                "Internal server error".to_string()
+            }
+            AeroError::BadRequest(m) => m.clone(),
+            AeroError::Forbidden(m)
+            | AeroError::Unauthorized(m)
+            | AeroError::NotFound(m)
+            | AeroError::Conflict(m)
+            | AeroError::TooManyRequests(m) => m.clone(),
+            other => other.to_string(),
+        };
+        let body = Json(json!({ "error": e.code(), "message": message, "status": status }));
         (
             StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
             body,
@@ -36,3 +53,5 @@ impl IntoResponse for AeroApiError {
             .into_response()
     }
 }
+
+pub type ApiResult<T> = Result<T, AeroApiError>;

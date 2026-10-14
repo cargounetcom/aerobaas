@@ -109,17 +109,59 @@ impl Role {
     }
 
     pub fn can_access_inspector(&self) -> bool {
-        matches!(self, Self::Owner | Self::Admin)
+        matches!(self, Self::Owner | Self::Admin | Self::Manager)
     }
 
-    pub fn implies(&self, other: &Role) -> bool {
-        let level = |r: &Role| match r {
+    pub fn level(&self) -> u8 {
+        match self {
             Role::Owner => 4,
             Role::Admin => 3,
             Role::Manager => 2,
             Role::User => 1,
-        };
-        level(self) >= level(other)
+        }
+    }
+
+    pub fn implies(&self, other: &Role) -> bool {
+        self.level() >= other.level()
+    }
+
+    pub fn parse(s: &str) -> Option<Role> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "owner" => Some(Role::Owner),
+            "admin" => Some(Role::Admin),
+            "manager" => Some(Role::Manager),
+            "user" => Some(Role::User),
+            _ => None,
+        }
+    }
+
+    /// Same matrix as the SovereignBaaS admin: owners invite anyone, admins up to admin,
+    /// managers only users, users nobody.
+    pub fn can_invite_role(&self, target: &Role) -> bool {
+        match self {
+            Role::Owner => true,
+            Role::Admin => target.level() <= Role::Admin.level(),
+            Role::Manager => *target == Role::User,
+            Role::User => false,
+        }
+    }
+
+    pub fn can_change_role(&self, current: &Role, new: &Role) -> bool {
+        match self {
+            Role::Owner => true,
+            Role::Admin => {
+                current.level() < Role::Admin.level() && new.level() <= Role::Admin.level()
+            }
+            _ => false,
+        }
+    }
+
+    pub fn can_remove(&self, target: &Role) -> bool {
+        match self {
+            Role::Owner => true,
+            Role::Admin => target.level() < Role::Admin.level(),
+            _ => false,
+        }
     }
 }
 

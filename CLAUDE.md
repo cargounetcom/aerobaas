@@ -12,20 +12,24 @@ AeroBaaS is an agent-native backend: workspaces and roles, scoped API keys with 
 * Rust only. No Erlang, no Node/Python in the core.
 * PostgreSQL through sqlx with migrations. No SurrealDB.
 * The admin UI is the **SovereignBaaS Admin** (repo `cargounetcom/sovereign-admin`) with an `engine: aero` adapter. Don't revive `legacy/frontend`.
-* AeroBaaS must also serve the SovereignBaaS admin API contract: `/api/me`, `/api/workspaces/{ws}/me|members|invites|inspector/*|ai/*`.
+* AeroBaaS must also serve the SovereignBaaS admin API contract (`crates/aero-core/src/admin_api.rs`): `/api/me`, `/api/workspaces/{ws}/me|members|invites|inspector/*` (and `ai/*` from Phase 2). Keep shapes identical to `sovereign-admin/inspector/src`.
 * No cryptocurrency customers or features.
 * Secrets come only from the environment (`AERO_*`). The server refuses to start without `AERO_JWT_SECRET` (32+ characters).
 
 ## Rules for every change
 1. `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` must pass.
 2. Behaviour changes need a test in `crates/aero-core/tests/api.rs`. When a roadmap item lands, remove its `#[ignore = "Phase …"]`.
-3. Every route checks authentication and workspace membership/role unless it is explicitly public (`/health`, register, login, key verify).
+3. Every route checks authentication and workspace membership/role unless it is explicitly public (`/health`, register, login, refresh, key verify, `GET /api/invites/{token}`). Use the `Ctx` (member or API key) or `UserAuth` extractors in `crates/aero-core/src/auth.rs`; never trust ids from the body for authorisation.
 4. Never claim a feature works in docs or UI copy until a test proves it. Mark stubs as stubs.
 5. Keep `README.md` "What is real today" and `ROADMAP.md` checkboxes in sync with the code.
+6. Schema changes are new files in `crates/aero-db/migrations/` (never edit an applied migration).
+7. Audit every change of state with `audit::record` (`crates/aero-core/src/audit.rs`).
 
 ## Useful commands
 ```bash
-cargo run --release --bin aero -- serve                     # needs AERO_JWT_SECRET
+docker compose up -d                                         # PostgreSQL + server (see .env.example)
+cargo run --release --bin aero -- serve                     # needs AERO_JWT_SECRET + AERO_DATABASE_URL
+export AERO_TEST_DATABASE_URL=postgres://aero:aero@127.0.0.1/aero   # tests need PostgreSQL
 cargo test -p aero-core --test api                           # API suite
 cargo test -p aero-core --test api -- --ignored              # open roadmap gaps
 ```

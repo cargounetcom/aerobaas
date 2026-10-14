@@ -15,6 +15,7 @@ aero-protocol = { path = "../aero-protocol" }
 aero-skills = { path = "../aero-skills" }
 aero-keys = { path = "../aero-keys" }
 aero-crypto = { path = "../aero-crypto" }
+uuid = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }

@@ -5,13 +5,14 @@ use sha2::Sha256;
 pub struct ComplianceBuilder;
 
 impl ComplianceBuilder {
-    pub fn build(checks: Vec<ComplianceCheck>) -> ComplianceLog {
+    pub fn build(checks: Vec<ComplianceCheck>, signing_key: &[u8]) -> ComplianceLog {
         let log_id = format!("aero-compliance-{}", chrono::Utc::now().timestamp());
         let timestamp = chrono::Utc::now();
 
         let checks_json = serde_json::to_string(&checks).unwrap_or_default();
 
-        let mut hmac = Hmac::<Sha256>::new_from_slice(b"aero_compliance_signing_key").unwrap();
+        let mut hmac =
+            Hmac::<Sha256>::new_from_slice(signing_key).expect("HMAC accepts any key length");
         hmac.update(checks_json.as_bytes());
         let signature = hex::encode(hmac.finalize().into_bytes());
 

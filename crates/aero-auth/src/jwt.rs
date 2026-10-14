@@ -37,11 +37,15 @@ impl JwtService {
         }
 
         let signing_input = format!("{}.{}", parts[0], parts[1]);
-        let expected_sig = self.hmac_sha256(&signing_input);
         let provided_sig = self.b64url_decode(parts[2])?;
-
-        if expected_sig != provided_sig {
-            anyhow::bail!("Invalid JWT signature");
+        {
+            use hmac::Mac;
+            let mut mac = hmac::Hmac::<Sha256>::new_from_slice(&self.secret)
+                .map_err(|_| anyhow::anyhow!("invalid key"))?;
+            mac.update(signing_input.as_bytes());
+            // constant-time comparison
+            mac.verify_slice(&provided_sig)
+                .map_err(|_| anyhow::anyhow!("Invalid JWT signature"))?;
         }
 
         let payload_bytes = self.b64url_decode(parts[1])?;
@@ -72,6 +76,7 @@ impl JwtService {
             scopes: scopes.to_vec(),
             exp: now + 3600,
             iat: now,
+            typ: "access".into(),
         };
         let refresh_claims = JwtClaims {
             sub: user_id,
@@ -81,6 +86,7 @@ impl JwtService {
             scopes: scopes.to_vec(),
             exp: now + 86400 * 30,
             iat: now,
+            typ: "refresh".into(),
         };
         let access = self.issue(&access_claims)?;
         let refresh = self.issue(&refresh_claims)?;

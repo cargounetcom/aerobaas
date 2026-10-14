@@ -12,6 +12,7 @@ use serde_json::json;
 pub struct McpServer {
     db: Arc<DbClient>,
     ai_engine: Arc<AiEngine>,
+    #[allow(dead_code)] // used by MCP tools in Phase 2
     wasm_runtime: Arc<WasmRuntime>,
 }
 
@@ -77,10 +78,8 @@ impl McpServer {
                 let schema = self.db.get_schema().await?;
                 Ok(schema)
             }
-            "aero://functions" => {
-                let funcs = self.wasm_runtime.list_functions();
-                Ok(json!({ "functions": funcs }))
-            }
+            // Needs the caller's workspace; arrives with the MCP protocol in Phase 2.
+            "aero://functions" => anyhow::bail!("aero://functions is not available yet (Phase 2)"),
             _ => anyhow::bail!("Unknown resource URI: {uri}"),
         }
     }

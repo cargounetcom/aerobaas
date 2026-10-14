@@ -1,5 +1,3 @@
 pub mod service;
-pub mod store;
 
-pub use service::TenancyService;
-pub use store::TenancyStore;
+pub use service::{InviteInfo, MemberInfo, TenancyService};

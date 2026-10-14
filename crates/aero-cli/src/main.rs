@@ -24,14 +24,14 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
-    /// Deploy a project with auto-detection
+    /// Detect a project's framework (upload arrives in Phase 3)
     Deploy {
         #[arg(long)]
         auto_detect: bool,
         #[arg(default_value = ".")]
         path: String,
     },
-    /// Generate a new API key
+    /// Create an API key in your active workspace (needs AERO_TOKEN)
     CreateKey {
         #[arg(short, long)]
         name: String,
@@ -40,7 +40,7 @@ enum Commands {
         #[arg(long)]
         credits: Option<i64>,
     },
-    /// Initialize a new AeroBaaS project
+    /// Write a .env with a new JWT secret
     Init {
         #[arg(default_value = ".")]
         path: String,

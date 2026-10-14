@@ -15,7 +15,6 @@ members = [
     "crates/aero-protocol",
     "crates/aero-auth",
     "crates/aero-tenancy",
-    "crates/aero-inspector",
     "crates/aero-chat",
     "crates/aero-realtime",
     "crates/aero-metrics",
@@ -49,6 +48,8 @@ sha2 = "0.10"
 hmac = "0.12"
 rand = "0.8"
 clap = { version = "4.5", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
+argon2 = "0.5"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]
@@ -59,4 +60,10 @@ strip = true
 panic = "abort"
 
 [profile.release.package."*"]
+opt-level = 3
+
+# Password hashing is very slow without optimisation; keep tests fast.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
 opt-level = 3

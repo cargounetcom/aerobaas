@@ -7,7 +7,6 @@ pub struct AeroConfig {
     pub wasm: WasmConfig,
     pub ai: AiConfig,
     pub security: SecurityConfig,
-    pub orchestrator: OrchestratorConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,12 +17,21 @@ pub struct ServerConfig {
     pub tls_enabled: bool,
     pub tls_cert_path: Option<String>,
     pub tls_key_path: Option<String>,
+    /// Browser origins allowed to call the API (`AERO_CORS_ORIGINS`, comma separated). Empty = same origin only.
+    pub cors_origins: Vec<String>,
+    /// Trust `X-Forwarded-For` / `X-Real-IP` (`AERO_TRUST_PROXY=true`) — only behind your own reverse proxy.
+    pub trust_proxy: bool,
+    /// Public URL of the admin, used in invite links (`AERO_PUBLIC_URL`).
+    pub public_url: String,
+    /// How long request-inspector rows are kept (`AERO_INSPECTOR_RETENTION_DAYS`).
+    pub inspector_retention_days: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    /// PostgreSQL URL (`AERO_DATABASE_URL`). Contains a password: never logged or serialised.
+    #[serde(skip_serializing, default)]
     pub url: String,
-    pub namespace: String,
     pub max_connections: u32,
     pub connection_timeout_ms: u64,
 }
@@ -62,19 +70,18 @@ pub struct SecurityConfig {
     /// HMAC secret for JWTs (`AERO_JWT_SECRET`, at least 32 characters). Never logged or serialised.
     #[serde(skip_serializing, default)]
     pub jwt_secret: String,
-    pub encryption_key_env: String,
+    /// HMAC key for signed compliance records (`AERO_SIGNING_KEY`). Derived from the JWT secret when unset.
+    #[serde(skip_serializing, default)]
+    pub signing_key: String,
+    /// Emails allowed to manage platform-wide settings (`AERO_PLATFORM_ADMINS`, comma separated).
+    /// Empty = the first registered user.
+    pub platform_admins: Vec<String>,
+    /// Max failed logins per email in 15 minutes (`AERO_LOGIN_MAX_FAILURES`).
+    pub login_max_failures: u32,
     pub hazmat_enabled: bool,
     pub remediation_enabled: bool,
     pub compliance_log_enabled: bool,
     pub max_severity_allowed: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrchestratorConfig {
-    pub erlang_node: String,
-    pub erlang_cookie: String,
-    pub max_agents: usize,
-    pub agent_timeout_ms: u64,
 }
 
 impl Default for AeroConfig {
@@ -87,11 +94,14 @@ impl Default for AeroConfig {
                 tls_enabled: false,
                 tls_cert_path: None,
                 tls_key_path: None,
+                cors_origins: vec![],
+                trust_proxy: false,
+                public_url: "http://localhost:8080".into(),
+                inspector_retention_days: 30,
             },
             database: DatabaseConfig {
-                url: "surrealkv://data/aero.db".into(),
-                namespace: "aerobaas".into(),
-                max_connections: 50,
+                url: String::new(),
+                max_connections: 20,
                 connection_timeout_ms: 5000,
             },
             wasm: WasmConfig {
@@ -112,20 +122,23 @@ impl Default for AeroConfig {
             },
             security: SecurityConfig {
                 jwt_secret: String::new(),
-                encryption_key_env: "AERO_ENCRYPTION_KEY".into(),
+                signing_key: String::new(),
+                platform_admins: vec![],
+                login_max_failures: 10,
                 hazmat_enabled: true,
                 remediation_enabled: true,
                 compliance_log_enabled: true,
                 max_severity_allowed: "medium".into(),
             },
-            orchestrator: OrchestratorConfig {
-                erlang_node: "aero_orchestrator@localhost".into(),
-                erlang_cookie: "aero_default_cookie".into(),
-                max_agents: 1_000_000,
-                agent_timeout_ms: 300_000,
-            },
         }
     }
+}
+
+fn list(v: &str) -> Vec<String> {
+    v.split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 fn env(name: &str) -> Option<String> {
@@ -145,12 +158,31 @@ impl AeroConfig {
         if let Some(v) = env("AERO_SERVER_PORT").and_then(|v| v.parse().ok()) {
             c.server.port = v;
         }
-        if let Some(v) = env("AERO_DB_URL") {
+        if let Some(v) = env("AERO_DATABASE_URL").or_else(|| env("DATABASE_URL")) {
             c.database.url = v;
         }
-        if let Some(v) = env("AERO_DB_NAMESPACE") {
-            c.database.namespace = v;
+        if let Some(v) = env("AERO_DATABASE_MAX_CONNECTIONS").and_then(|v| v.parse().ok()) {
+            c.database.max_connections = v;
         }
+        if let Some(v) = env("AERO_CORS_ORIGINS") {
+            c.server.cors_origins = list(&v);
+        }
+        if let Some(v) = env("AERO_TRUST_PROXY") {
+            c.server.trust_proxy = v == "true";
+        }
+        if let Some(v) = env("AERO_PUBLIC_URL") {
+            c.server.public_url = v.trim_end_matches('/').to_string();
+        }
+        if let Some(v) = env("AERO_INSPECTOR_RETENTION_DAYS").and_then(|v| v.parse().ok()) {
+            c.server.inspector_retention_days = v;
+        }
+        if let Some(v) = env("AERO_PLATFORM_ADMINS") {
+            c.security.platform_admins = list(&v).into_iter().map(|e| e.to_lowercase()).collect();
+        }
+        if let Some(v) = env("AERO_LOGIN_MAX_FAILURES").and_then(|v| v.parse().ok()) {
+            c.security.login_max_failures = v;
+        }
+        c.security.signing_key = env("AERO_SIGNING_KEY").unwrap_or_default();
         if let Some(v) = env("AERO_WASM_MAX_MEMORY_MB").and_then(|v| v.parse().ok()) {
             c.wasm.max_memory_mb = v;
         }
@@ -183,6 +215,16 @@ impl AeroConfig {
                 "AERO_JWT_SECRET still has the example value; generate a real secret".into(),
             );
         }
+        let url = &self.database.url;
+        if !(url.starts_with("postgres://") || url.starts_with("postgresql://")) {
+            return Err(
+                "AERO_DATABASE_URL must be set to a PostgreSQL URL (postgres://user:pass@host:5432/db)"
+                    .into(),
+            );
+        }
+        if !self.security.signing_key.is_empty() && self.security.signing_key.len() < 32 {
+            return Err("AERO_SIGNING_KEY must be at least 32 characters".into());
+        }
         Ok(())
     }
 }
@@ -198,6 +240,8 @@ mod tests {
         c.security.jwt_secret = "change-me-in-production-change-me-123".into();
         assert!(c.validate().is_err());
         c.security.jwt_secret = "x".repeat(48);
+        assert!(c.validate().is_err(), "database URL is required");
+        c.database.url = "postgres://aero:aero@localhost/aero".into();
         assert!(c.validate().is_ok());
     }
 }

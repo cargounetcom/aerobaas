@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::time::Instant;
 
 use aero_config::WasmConfig;
@@ -7,7 +6,6 @@ use aero_protocol::functions::{
 };
 use aero_protocol::AeroResult;
 use aero_remediation::RemediationService;
-use parking_lot::RwLock;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -16,18 +14,12 @@ use crate::sandbox::SandboxConfig;
 
 pub struct WasmRuntime {
     config: WasmConfig,
-    instances: RwLock<HashMap<Uuid, WasmInstance>>,
     #[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
     egress_filter: EgressFilter,
 }
 
-#[derive(Clone)]
-#[allow(dead_code)] // wired up in a later phase (see ROADMAP.md)
-struct WasmInstance {
-    function: Function,
-    wasm_bytes: Vec<u8>,
-    last_used: Instant,
-}
+/// Largest module accepted by deploy (bytes).
+pub const MAX_WASM_BYTES: usize = 10 * 1024 * 1024;
 
 impl WasmRuntime {
     pub fn new(config: WasmConfig) -> anyhow::Result<Self> {
@@ -37,132 +29,115 @@ impl WasmRuntime {
         );
         Ok(Self {
             config,
-            instances: RwLock::new(HashMap::new()),
             egress_filter,
         })
     }
 
+    /// Check a module and build its record for `workspace_id`. Storing it is the caller's job.
     pub async fn deploy(
         &self,
-        req: DeployRequest,
+        workspace_id: Uuid,
+        req: &DeployRequest,
         _remediation: &RemediationService,
-    ) -> AeroResult<DeployResponse> {
+    ) -> AeroResult<(Function, DeployResponse)> {
         let start = Instant::now();
+        let name = req.name.trim();
+        if name.is_empty() || name.chars().count() > 100 {
+            return Err(aero_protocol::AeroError::BadRequest(
+                "Function name must be 1–100 characters".into(),
+            ));
+        }
+        if req.wasm_bytes.is_empty() || req.wasm_bytes.len() > MAX_WASM_BYTES {
+            return Err(aero_protocol::AeroError::BadRequest(format!(
+                "wasm_bytes must be 1 byte to {} MB",
+                MAX_WASM_BYTES / 1024 / 1024
+            )));
+        }
+        let entrypoint = req.entrypoint.trim();
+        if entrypoint.is_empty() || entrypoint.len() > 200 {
+            return Err(aero_protocol::AeroError::BadRequest(
+                "entrypoint is required".into(),
+            ));
+        }
 
         let wasm_hash = {
             let mut hasher = Sha256::new();
             hasher.update(&req.wasm_bytes);
             hex::encode(hasher.finalize())
         };
-
         let function_id = Uuid::new_v4();
-        let project_id = Uuid::new_v4();
-
-        tracing::info!(
-            function_id = %function_id,
-            name = %req.name,
-            wasm_size = req.wasm_bytes.len(),
-            "Deploying Wasm function"
-        );
 
         let quarantine_passed = if self.config.hazmat_egress_filtering {
             self.run_hazmat_quarantine(&req.wasm_bytes).await?
         } else {
             true
         };
-
-        let remediation_applied = false;
-
         let status = if quarantine_passed {
             FunctionStatus::Deployed
         } else {
             FunctionStatus::Blocked
         };
-
+        let clamp = |v: Option<u32>, max: u32| v.unwrap_or(max).clamp(1, max);
+        let now = chrono::Utc::now();
         let function = Function {
             id: function_id,
-            project_id,
-            name: req.name.clone(),
+            project_id: workspace_id,
+            name: name.to_string(),
             runtime: Runtime::WasmWasi,
             wasm_hash: wasm_hash.clone(),
-            entrypoint: req.entrypoint,
+            entrypoint: entrypoint.to_string(),
             env_vars: vec![],
-            memory_limit_mb: req.memory_limit_mb.unwrap_or(self.config.max_memory_mb),
-            cpu_limit_percent: req.cpu_limit_percent.unwrap_or(self.config.max_cpu_percent),
-            timeout_ms: req.timeout_ms.unwrap_or(self.config.default_timeout_ms),
+            memory_limit_mb: clamp(req.memory_limit_mb, self.config.max_memory_mb),
+            cpu_limit_percent: clamp(req.cpu_limit_percent, self.config.max_cpu_percent),
+            timeout_ms: clamp(req.timeout_ms, self.config.default_timeout_ms),
             status: status.clone(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: now,
+            updated_at: now,
         };
-
-        self.instances.write().insert(
-            function_id,
-            WasmInstance {
-                function: function.clone(),
-                wasm_bytes: req.wasm_bytes,
-                last_used: Instant::now(),
-            },
-        );
-
-        let elapsed = start.elapsed();
         tracing::info!(
             function_id = %function_id,
-            deploy_duration_ms = elapsed.as_millis(),
+            deploy_duration_ms = start.elapsed().as_millis(),
             quarantine_passed,
-            "Function deployed"
+            "Function checked"
         );
-
-        Ok(DeployResponse {
+        let resp = DeployResponse {
             function_id,
             status,
             wasm_hash,
             quarantine_passed,
-            remediation_applied,
-        })
+            remediation_applied: false,
+        };
+        Ok((function, resp))
     }
 
     pub async fn execute(
         &self,
-        function_id: Uuid,
+        function: &Function,
+        wasm_bytes: &[u8],
         payload: serde_json::Value,
     ) -> AeroResult<ExecuteResponse> {
         let start = Instant::now();
-
-        let instance = {
-            let instances = self.instances.read();
-            instances.get(&function_id).cloned()
-        };
-
-        let Some(instance) = instance else {
-            return Err(aero_protocol::AeroError::NotFound(format!(
-                "Function {function_id} not found"
-            )));
-        };
-
-        if instance.function.status != FunctionStatus::Deployed {
+        if function.status != FunctionStatus::Deployed {
             return Err(aero_protocol::AeroError::WasmExecution(format!(
                 "Function status is {:?}, not Deployed",
-                instance.function.status
+                function.status
             )));
         }
-
         let sandbox = SandboxConfig::new(
-            instance.function.memory_limit_mb,
-            instance.function.cpu_limit_percent,
-            instance.function.timeout_ms,
+            function.memory_limit_mb,
+            function.cpu_limit_percent,
+            function.timeout_ms,
         );
-
-        let result = self.run_sandboxed(&instance, &payload, &sandbox).await?;
-
+        let result = self
+            .run_sandboxed(function, wasm_bytes, &payload, &sandbox)
+            .await?;
         let elapsed = start.elapsed();
-        let credits_consumed = ((elapsed.as_millis() as i64) + 1) / 10;
-
         Ok(ExecuteResponse {
             execution_id: Uuid::new_v4(),
             output: result,
             duration_ms: elapsed.as_millis() as u64,
             memory_used_mb: 0.0,
-            credits_consumed,
+            credits_consumed: 1,
         })
     }
 
@@ -194,12 +169,13 @@ impl WasmRuntime {
 
     async fn run_sandboxed(
         &self,
-        instance: &WasmInstance,
+        function: &Function,
+        _wasm_bytes: &[u8],
         payload: &serde_json::Value,
         sandbox: &SandboxConfig,
     ) -> AeroResult<serde_json::Value> {
         tracing::debug!(
-            function_id = %instance.function.id,
+            function_id = %function.id,
             memory_limit_mb = sandbox.memory_limit_mb,
             timeout_ms = sandbox.timeout_ms,
             "Executing in Wasm sandbox"
@@ -211,14 +187,6 @@ impl WasmRuntime {
             "status": "executed",
             "message": "Wasm execution completed (stub — wire Wasmtime engine here)"
         }))
-    }
-
-    pub fn list_functions(&self) -> Vec<Function> {
-        self.instances
-            .read()
-            .values()
-            .map(|i| i.function.clone())
-            .collect()
     }
 }
 

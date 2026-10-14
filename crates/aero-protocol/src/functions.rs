@@ -69,7 +69,10 @@ pub struct DeployResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecuteRequest {
-    pub function_id: Uuid,
+    /// Optional; the function id in the URL is authoritative.
+    #[serde(default)]
+    pub function_id: Option<Uuid>,
+    #[serde(default)]
     pub payload: serde_json::Value,
 }
 

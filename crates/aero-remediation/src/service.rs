@@ -11,14 +11,28 @@ pub struct RemediationService {
     config: Arc<AeroConfig>,
     scanner: Scanner,
     patcher: Patcher,
+    signing_key: Vec<u8>,
 }
 
 impl RemediationService {
     pub fn new(config: Arc<AeroConfig>) -> Self {
+        // AERO_SIGNING_KEY when set; otherwise a key derived from the JWT secret
+        // (domain-separated so the two are never interchangeable).
+        let signing_key = if config.security.signing_key.is_empty() {
+            use hmac::{Hmac, Mac};
+            let mut mac =
+                Hmac::<sha2::Sha256>::new_from_slice(config.security.jwt_secret.as_bytes())
+                    .expect("HMAC accepts any key length");
+            mac.update(b"aerobaas/compliance-signing/v1");
+            mac.finalize().into_bytes().to_vec()
+        } else {
+            config.security.signing_key.as_bytes().to_vec()
+        };
         Self {
             config,
             scanner: Scanner::new(),
             patcher: Patcher::new(),
+            signing_key,
         }
     }
 
@@ -86,7 +100,7 @@ impl RemediationService {
             },
         ];
 
-        let compliance_log = ComplianceBuilder::build(checks);
+        let compliance_log = ComplianceBuilder::build(checks, &self.signing_key);
 
         tracing::info!(
             blocked,

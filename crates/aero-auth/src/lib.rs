@@ -1,6 +1,5 @@
 pub mod jwt;
-pub mod middleware;
 pub mod service;
 
 pub use jwt::JwtService;
-pub use service::AuthService;
+pub use service::{hash_password, validate_email, verify_password, AuthService};

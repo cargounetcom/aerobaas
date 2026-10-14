@@ -20,8 +20,8 @@ The originals stay unchanged as reference. When this file and the originals disa
 |---|---|---|---|
 | A1 | Wasm runtime on Wasmtime, cold start < 50 ms (spec 2.A) | ✅ keep | Phase 2. Measure p50/p95 with a benchmark in CI. |
 | A2 | Memory and CPU throttling per sandbox (2.A) | ✅ keep | Phase 2. Uses Wasmtime fuel and memory limits. |
-| B1 | Keys API 2.0: scopes, per-key function allow-list, `functions.list()` filtered (2.B) | ✅ keep | Phase 1. Scopes already exist; enforcing them is the work. |
-| B2 | Real-time credits, key turns off at 0 (2.B) | ✅ keep | Phase 1. Stored in Postgres; also wired into the unified licensing service. |
+| B1 | Keys API 2.0: scopes, per-key function allow-list, `functions.list()` filtered (2.B) | ✅ done | Phase 1 (14 Oct 2026). Tested in `key_scopes_allow_list_and_credits`. |
+| B2 | Real-time credits, key turns off at 0 (2.B) | ✅ done | Phase 1: atomic in PostgreSQL, 1 credit per request. Linking credits to the unified licensing service is Phase 5. |
 | C1 | Built-in MCP server: read schema, create collections, generate and deploy functions (2.C) | ✅ keep | Phase 2. JSON-RPC over WebSocket, 5 tools first. |
 | C2 | Lock so two agents can't change the same table or function at once (2.C) | ✅ keep, in Rust | Phase 4. Postgres advisory locks instead of Erlang. |
 | D1 | Hazmat "shadow environment" before deploy (2.D) | ✅ keep | Phase 2. First test run happens in a quarantined sandbox with no network. |
@@ -36,7 +36,7 @@ The originals stay unchanged as reference. When this file and the originals disa
 | F4 | Prompt-injection screening of function inputs (security add-on) | ✅ keep | Pattern check exists; model-based later. |
 | F5 | Signed compliance log per deploy (security add-on) | ✅ keep, reworded | Phase 2: HMAC/ed25519-signed deploy record (who, what, scan result, hash). Maps to **EU** frameworks (GDPR, NIS2, DORA, CRA). Don't claim conformity to "Israeli Cybersecurity Ops" standards unless audited. |
 | G1 | AI command chat with MCP actions (admin doc §1) | ✅ keep | Phase 3. The SovereignBaaS Admin chat gains "actions" that call MCP tools, each needing confirmation. |
-| G2 | Realtime audit log: who/what (user, AI agent, system, Hazmat) (admin doc A) | ✅ keep | Phase 1 records it, Phase 3 adds the live view (WebSocket). |
+| G2 | Realtime audit log: who/what (user, AI agent, system, Hazmat) (admin doc A) | 🟡 half done | Phase 1: recorded in PostgreSQL + live WebSocket `/v1/audit/stream`. Phase 3: the admin page. |
 | G3 | Sandbox metrics dashboard: cold-start latency, memory throttling (admin doc B) | ✅ keep | Phase 3. Recharts page in the admin. |
 | H1 | Delivery models: Cloud, Enterprise private cloud, Local air-gapped (business section) | ✅ keep | Local and Enterprise first (same model as SovereignBaaS). Cloud later. |
 | H2 | Sector packaging: Gov, MedTech, FinTech (business section) | ✅ keep | Website and sales material. **No crypto clients.** HIPAA wording only if actually assessed; for the EU use GDPR, NIS2 and DORA. |

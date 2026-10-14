@@ -4,8 +4,11 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
     pub id: Uuid,
+    /// Workspace that owns the key (kept as `project_id` for API compatibility).
     pub project_id: Uuid,
     pub key_prefix: String,
+    /// SHA-256 of the secret. Never sent to clients.
+    #[serde(skip_serializing, default)]
     pub key_hash: String,
     pub name: String,
     pub scopes: Vec<Scope>,

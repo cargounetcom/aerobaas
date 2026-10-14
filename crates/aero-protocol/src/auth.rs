@@ -78,6 +78,9 @@ pub struct JwtClaims {
     pub scopes: Vec<String>,
     pub exp: usize,
     pub iat: usize,
+    /// "access" or "refresh". An access token is never accepted as a refresh token and vice versa.
+    #[serde(default)]
+    pub typ: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

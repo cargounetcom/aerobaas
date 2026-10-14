@@ -1,0 +1,31 @@
+# Local AeroBaaS with PostgreSQL:  cp .env.example .env  (set AERO_JWT_SECRET and POSTGRES_PASSWORD)
+#                                  docker compose up -d   →  http://localhost:8080/health
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aero
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: aero
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aero"]
+      interval: 5s
+      retries: 10
+
+  aerobaas:
+    image: ghcr.io/cargounetcom/aerobaas:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      AERO_DATABASE_URL: postgres://aero:${POSTGRES_PASSWORD}@postgres:5432/aero
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:
