@@ -29,3 +29,5 @@ Newest first. One entry per working day: what was done (with proof), what is ope
 5. **If time remains:** Functions page in the admin (list, upload `.wasm`, run with a JSON payload, execution history).
 
 Owner, in parallel (SovereignBaaS): Hetzner installer test; send IBAN, emails and domain for the website.
+
+Moving portfolio projects onto SovereignBaaS: see `cargounetcom/sovereign-admin` → `docs/MIGRATION-PLAN.md` (step 0 on Hetzner first, then Nordic AI as the pilot).
