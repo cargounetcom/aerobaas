@@ -92,7 +92,7 @@ Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main 
 | 17:00–17:30 | Both | Notes + plan for 17 Oct | PROGRESS updated |
 
 Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), (`aionflow` is on GitHub now).
-Later (17 Oct+, owner decision 15 Oct): **not tomorrow** — partner/affiliate codes; idea for later: **10% coupon for people who register through the Discord community** (Stripe promotion code). Also later: netcup affiliate link, white-label kit (month 2–3), Amplication/Prisma import + Sites tests (1–2 months). Security page in the admin, pay connector (`aionflow`), contracts + SDK, installer hint `--registry-token` on unauthorized pulls, the 8 old desktop-app tests.
+Later (17 Oct+, owner decision 15 Oct): **not tomorrow** — partner/affiliate codes; idea for later: **10% coupon for people who register through the Discord community** (Stripe promotion code), and the same kind of coupon shown on the landing page (banner, e.g. `LAUNCH10`; shown only while the code is active in Stripe). Also later: netcup affiliate link, white-label kit (month 2–3), Amplication/Prisma import + Sites tests (1–2 months). Security page in the admin, pay connector (`aionflow`), contracts + SDK, installer hint `--registry-token` on unauthorized pulls, the 8 old desktop-app tests.
 
 ## 14 Oct 2026
 
