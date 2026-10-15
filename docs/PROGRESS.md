@@ -42,7 +42,9 @@ Decision: **paid licence, no free tier — no payment, no service** (like a subs
 | 17:00–17:30 | Claude | Fix whatever the owner's full template run reports (Discord bot build, Generate PDF) | re-run green |
 | 17:30 | Both | Notes + plan for 16 Oct | PROGRESS updated |
 
-Placeholders until the owner decides: product domain `sovereignbaas.eu` (change in one place), prefixes `SOVB` / `SQLB` / `AERO`.
+Product domain **`sovereignbaas.eu` registered by the owner (15 Oct)**; licence prefixes `SOVB` / `SQLB` / `AERO`.
+
+Update 13:40: licensing change pushed to `ideascodex-web` main (`c045280`…`2000fd3`; lint, format, types, i18n and billing tests 47/47 pass) and deployed on Railway (`ideascodex-billing`, SUCCESS). 8 desktop-app tests already failed on main before this change (app ID `com.ascodex.ide`, translations, build arm64, feedback module map): separate task. Owner key: needs `BILLING_ADMIN_KEY` on the billing service, then `GET /admin/domain-keys`.
 
 **16 Oct:** restore command (+ CI), Security page in the admin, Stripe prices for SOVB tiers, pay connector (`aionflow`), contracts + SDK.
 
