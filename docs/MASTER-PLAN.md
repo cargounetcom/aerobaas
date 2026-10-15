@@ -42,6 +42,8 @@ Automation (week 2): one script `domain-check` runs checks 1–4, 9 for all doma
 
 ## 4. Timeline
 
+Daily rhythm 16–18 Oct (owner's choice): **07:00–12:00 SovereignBaaS**, **from 12:30 the day's product** (automatic start in this session at 07:00 and 12:30 Dublin time).
+
 | When | Product | Work |
 |---|---|---|
 | **16 Oct** | SovereignBaaS | DNS fix, paid licence merged, installer settings, PC self-test + template fixes, Stripe checkout → licence e-mail, SovereignSQL licence, restore + CI |
