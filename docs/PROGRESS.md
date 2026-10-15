@@ -46,7 +46,33 @@ Product domain **`sovereignbaas.eu` registered by the owner (15 Oct)**; licence 
 
 Update 13:40: licensing change pushed to `ideascodex-web` main (`c045280`…`2000fd3`; lint, format, types, i18n and billing tests 47/47 pass) and deployed on Railway (`ideascodex-billing`, SUCCESS). 8 desktop-app tests already failed on main before this change (app ID `com.ascodex.ide`, translations, build arm64, feedback module map): separate task. Owner key: needs `BILLING_ADMIN_KEY` on the billing service, then `GET /admin/domain-keys`.
 
-**16 Oct:** restore command (+ CI), Security page in the admin, Stripe prices for SOVB tiers, pay connector (`aionflow`), contracts + SDK.
+### Result of the afternoon (14:00)
+| Area | Result | Proof |
+|---|---|---|
+| Licensing service | `SOVB` / `SQLB` / `AERO` products on `sovereignbaas.eu`, `sql.` and `aero.` (tier Pro); pushed to `ideascodex-web` main, deployed on Railway | billing tests 47/47; Railway deploy SUCCESS, "license signing: on" |
+| ideascodex-web main | 3 TypeScript errors fixed, 19 files formatted, licence verifier copy test | lint, format, types, i18n pass |
+| Paid licence in SovereignBaaS | Branch `paid-licence`: `--license` required (online check), hourly check, 3 days' grace → stack stops + "Licence expired" page, data kept; `license refresh` after payment; `up` refused while unpaid | Installer matrix 9/9 green incl. "paid licence (no pay, no service)" — **not merged yet** |
+| Domain | `sovereignbaas.eu` registered; Railway domains added: `sovereignbaas.eu` + `www` → website, `license.` → licensing service | waiting for the owner's DNS records |
+| Owner key | `BILLING_ADMIN_KEY` set on Railway by the owner | owner reads her `SOVB`/`SQLB`/`AERO` keys (never pasted in chat) |
+
+Not done today (moved to 16 Oct): owner's installer re-run + full template run, RAG function, fixes from that run.
+Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main (app ID, translations, arm64 build, feedback map).
+
+### Plan for 16 Oct 2026
+| Time | Who | Task | Done when |
+|---|---|---|---|
+| 09:00–09:15 | Owner | DNS at the registrar (6 records: `@`, `www`, `license` + 3 `_railway-verify` TXT); tell Claude "dns done" | — |
+| 09:15–09:45 | Claude | Check DNS + HTTPS; installer default licence server → `https://license.sovereignbaas.eu/api/billing`; merge `paid-licence` into main | CI green on main; `https://license.sovereignbaas.eu` answers |
+| 10:00–11:00 | Owner | PC (WSL): `git pull`, re-install with `--license SOVB-PRO-…` (runtimes, 100000 functions/day, new console) → `appwrite-test.py` full run → paste the summary | report pasted |
+| 11:00–12:00 | Claude | Fix what the run reports (Discord bot build, Generate PDF, any template that fails) | re-run green |
+| 12:00–12:30 | Owner | New OpenAI + Pinecone keys (old ones revoked); `rag-sample-data.py`; RAG function from the template, keys only as Secret variables | POST `/prompt` answers from the FAQ |
+| 12:30–14:30 | Claude | **Stripe:** prices for SOVB Starter/Pro/Studio (owner sets amounts), checkout → licence key by e-mail, renewal extends paid-until; tests | test-mode payment issues a working key |
+| 14:30–16:00 | Claude | SovereignSQL: `--license SQLB-…` in its installer (same rules: no pay, no service) | "Install test" green incl. licence job |
+| 16:00–17:00 | Claude | `sovereignbaas restore` command + CI (backup → wipe → restore → data back) | CI green |
+| 17:00–17:30 | Both | Notes + plan for 17 Oct | PROGRESS updated |
+
+Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), and the `aionflow` repo (push to GitHub or ZIP without `.env`).
+Later (17 Oct+): Security page in the admin, pay connector (`aionflow`), contracts + SDK, installer hint `--registry-token` on unauthorized pulls, the 8 old desktop-app tests.
 
 ## 14 Oct 2026
 
