@@ -55,6 +55,25 @@ Update 13:40: licensing change pushed to `ideascodex-web` main (`c045280`…`200
 | Domain | `sovereignbaas.eu` registered; Railway domains added: `sovereignbaas.eu` + `www` → website, `license.` → licensing service | waiting for the owner's DNS records |
 | Owner key | `BILLING_ADMIN_KEY` set on Railway by the owner | owner reads her `SOVB`/`SQLB`/`AERO` keys (never pasted in chat) |
 
+### Appwrite settings reviewed (15:40)
+Checked against the Appwrite environment-variables documentation:
+
+| Setting | Decision |
+|---|---|
+| `docker system prune -a --volumes` | **Never** — removes unused volumes; with the stack stopped that is the database. Safe cleanup: `docker builder prune -f`, `docker image prune -f` |
+| `_APP_OPTIONS_ABUSE=disabled` | **No** — turns off all rate limits incl. sign-in brute-force protection. Only the function-creation limit was raised (`--functions-per-day`, 100000) |
+| `_APP_WORKERS_AMOUNT` | Does not exist in Appwrite. Real: `_APP_WORKER_PER_CORE` |
+| `_APP_CONSOLE_WHITELIST_ROOT=enabled` | Yes (default): only the first account may register |
+| `_APP_CONSOLE_WHITELIST_EMAILS` | Yes, with the owner's console e-mail (never `admin@example.com`) |
+| `_APP_WORKER_PER_CORE=2`, `_APP_COMPUTE_CPUS=1`, `_APP_COMPUTE_MEMORY=512` | Yes for small servers / the owner's PC |
+| Database container limits (`cpus`, `memory`) | Yes, but via a compose override written by the installer — Appwrite's own `docker-compose.yml` is replaced by `update` |
+
+→ 16 Oct: installer options `--console-emails` (default: owner's e-mail), `--workers-per-core`, `--function-cpus`, `--function-memory`, `--db-memory`, kept across `update`, with CI checks.
+
+### Railway check (15:45)
+12 projects, 43 services: all latest deployments SUCCESS, no failures in the last 24 h. One warning: `infinite-heroes-api` logs "GEMINI_API_KEY is missing" (image generation fails until the key is set on that service). `appwrite` on Railway: ~0.3 GB RAM, idle CPU.
+Domains: `sovereignbaas.eu` verified, certificate valid; `license.sovereignbaas.eu` verified, certificate pending (CNAME not visible yet); `www.sovereignbaas.eu` still points to the Namecheap parking page and its TXT record is missing.
+
 Not done today (moved to 16 Oct): owner's installer re-run + full template run, RAG function, fixes from that run.
 Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main (app ID, translations, arm64 build, feedback map).
 
@@ -69,6 +88,7 @@ Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main 
 | 12:30–14:30 | Claude | **Stripe:** prices for SOVB Starter/Pro/Studio (owner sets amounts), checkout → licence key by e-mail, renewal extends paid-until; tests | test-mode payment issues a working key |
 | 14:30–16:00 | Claude | SovereignSQL: `--license SQLB-…` in its installer (same rules: no pay, no service) | "Install test" green incl. licence job |
 | 16:00–17:00 | Claude | `sovereignbaas restore` command + CI (backup → wipe → restore → data back) | CI green |
+| (with the merge at 09:15) | Claude | Installer options from "Appwrite settings reviewed": console e-mail allow-list by default, workers, function CPU/RAM, DB limits | Installer matrix checks the `.env` values and that they survive `update` |
 | 17:00–17:30 | Both | Notes + plan for 17 Oct | PROGRESS updated |
 
 Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), (`aionflow` is on GitHub now).
