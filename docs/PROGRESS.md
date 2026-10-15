@@ -30,23 +30,21 @@ Lessons: new Supabase auth keys — Edge Functions need `SUPABASE_PUBLISHABLE_KE
 * Decision needed: `sovereign-contracts` as its own repo or a folder in `aerobaas` first.
 * From 14 Oct, still open: Agent keys check on Railway, real agent connection, Dependabot list, Phase 2b (AI), Functions page.
 
-### Plan (updated 15 Oct, 11:40)
-**Today, rest of the day**
-1. Owner: all-templates self-test on the PC → send the summary / FAIL lines; Claude fixes failures.
-2. Console image with own links finishes → owner runs `sudo sovereignbaas update`.
-3. Owner: Agent keys check on Railway (5 min).
-4. Claude: **restore command** `sovereignbaas restore <backup folder>` (+ `sovereignsql restore`) with a CI test: backup → wipe → restore → data back. First, because the PC now holds real test data.
-5. Claude: installer says "add `--registry-token`" when a private image is unauthorized (seen on the PC).
+### Plan for the rest of 15 Oct (updated 12:50)
+Decision: **paid licence, no free tier — no payment, no service** (like a subscription): invalid/unpaid licence → installer refuses; daily check; after 3 days' grace SovereignBaaS stops (data stays on the client's disk); pays again → runs again.
 
-**16 Oct**
-1. **Security page** in the admin: Amber Shield Scan results, last backup, last restore test (SovereignBaaS + SovereignSQL).
-2. **SovereignSQL tests:** RLS update/delete, Realtime WebSocket subscription (replaces the 403 health warning).
-3. **Pay connector:** review `aionflow` (Railway project `aionflow-payments` exists — owner names the GitHub repo) → Stripe checkout + verified webhook → licensing keys/credits → AeroBaaS credits.
-4. **Contracts + SDK:** `sovereign-contracts` (decision: own repo or folder) → generated `@sovereign/sdk`.
+| Time | Who | Task | Done when |
+|---|---|---|---|
+| 13:00–13:30 | Owner | PC: re-run installer from the clone (runtimes, 100000 functions/day, new console) → `appwrite-test.py` full run → send summary | report pasted |
+| 13:00–13:30 | Owner | Revoke the OpenAI + Pinecone keys pasted in chat, create new ones; `rag-sample-data.py`; RAG function from template (5 variables + `PINECONE_INDEX_ID`) | POST `/prompt` answers from the FAQ |
+| 13:00–15:00 | Claude | **Licensing:** add SovereignBaaS (`SOVB`), SovereignSQL (`SQLB`), AeroBaaS (`AERO`) to the licensing service (domains, tiers Starter/Pro/Studio); signed licence with paid-until + 3 days | unit tests in `packages/billing` |
+| 15:00–17:00 | Claude | **Licence in the product:** installer `--license` required + online check; daily `sovereignbaas license check` (systemd timer); stop + "Licence expired — renew" page; `license refresh` after payment | CI: valid key installs; no/invalid key refused; expired → stopped; renewed → running |
+| 17:00–17:30 | Claude | Fix whatever the owner's full template run reports (Discord bot build, Generate PDF) | re-run green |
+| 17:30 | Both | Notes + plan for 16 Oct | PROGRESS updated |
 
-**Later:** Import connector (Prisma/SQL → SovereignSQL), AeroBaaS Phase 2b (AI), admin adapter for the SQL engine, OpenTofu "new client", rented server (Netcup RS 2000 + RS 1000) after 1–2 weeks on the PC.
+Placeholders until the owner decides: product domain `sovereignbaas.eu` (change in one place), prefixes `SOVB` / `SQLB` / `AERO`.
 
-Owner: run on own PC for 1–2 weeks (no rented server yet); name the `aionflow` repo; choose contracts repo vs folder; Agent keys on Railway; change the console password (it was pasted in chat).
+**16 Oct:** restore command (+ CI), Security page in the admin, Stripe prices for SOVB tiers, pay connector (`aionflow`), contracts + SDK.
 
 ## 14 Oct 2026
 
