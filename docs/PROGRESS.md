@@ -92,6 +92,8 @@ Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main 
 | 17:00–17:30 | Both | Notes + plan for 17 Oct | PROGRESS updated |
 
 Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), (`aionflow` is on GitHub now).
+**Other products (owner decision 15 Oct, 17:02):** TemplateAI — **no free generations** (remove "5 free generations" from templateai.app; licence required from the first generation). Website currently shows $29/$79/$249 USD; last owner pricing was EUR (Solo €15, Develop €29, Enterprise €300) → owner to confirm on 17 Oct. Footer must say "Aurora Ember Cyber Bio Lab". Proposed: 17 Oct TemplateAI (prices, no free tier, company name, checkout test); 18 Oct ASCodex (Railway duplicate `ascodex-web` in US: delete or keep) + IDE ascodex (sign-up form, checkout test, 8 old tests).
+
 Later (17 Oct+, owner decision 15 Oct): **not tomorrow** — partner/affiliate codes; idea for later: **10% coupon for people who register through the Discord community** (Stripe promotion code), and the same kind of coupon shown on the landing page (banner, e.g. `LAUNCH10`; shown only while the code is active in Stripe). Also later: netcup affiliate link, white-label kit (month 2–3), Amplication/Prisma import + Sites tests (1–2 months). Security page in the admin, pay connector (`aionflow`), contracts + SDK, installer hint `--registry-token` on unauthorized pulls, the 8 old desktop-app tests.
 
 ## 14 Oct 2026
