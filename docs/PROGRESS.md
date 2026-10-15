@@ -17,7 +17,8 @@ Newest first. One entry per working day: what was done (with proof), what is ope
 | Hosting | Recommended: one server per product; Netcup RS 2000 + RS 1000 (~€27/month, dedicated cores, ECC) instead of Hetzner AX42-2 (€189 + €94 setup in HEL1, excl. VAT); Contabo/Hetzner CX for staging; Storage Box for backups | prices to re-check (Netcup G12.5) |
 
 | Owner's PC | SovereignBaaS installed in WSL2 (Ubuntu 24.04, Docker 29, 16 GB): enterprise, PostgreSQL, branded console, admin; console and admin open; backup works | Self-test on the PC: database 8/8 PASS, Starter function template built (10 s) and ran (HTTP 200) |
-| Self-test | `sovereign-admin/scripts/appwrite-test.py`: TablesDB end to end + deploy/run every Functions template with a temporary key; in CI (PostgreSQL job) | PC run above; CI run pending |
+| Self-test | `sovereign-admin/scripts/appwrite-test.py`: Auth (user, sign-in, wrong password, session, JWT, search, block, delete), TablesDB end to end, every Functions template (one reusable function per runtime — Appwrite allows 50 new functions/day) | CI green (Installer matrix 8/8); PC: database 8/8, 8 templates PASS, RAG NEEDS KEYS; full template run tomorrow (daily limit) |
+| Runtimes + RAG | Installer `--runtimes` (adds python-3.12, dart-3.5, php-8.3, ruby-3.3, deno-2.0, bun-1.2, go-1.23); `scripts/rag-sample-data.py` creates `knowledge.faq` with 10 FAQ rows | CI green |
 | Console links | Home, Docs, Changelog, legal links → own website (`brand.config.json` → `links`); build stops if they can't be re-pointed | Verified on console 1.2.74 source; image build running |
 | Website | "What's new" page `changelog.html` + footer link + sitemap | Rendered and checked in a browser |
 
