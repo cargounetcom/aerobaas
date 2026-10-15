@@ -60,3 +60,15 @@ Daily rhythm 16–18 Oct (owner's choice): **07:00–12:00 SovereignBaaS**, **fr
 * TemplateAI currency and prices (EUR €15 / €29 / €300 or the USD prices on the site).
 * ASCodex: delete or keep the Railway copy `ascodex-web` (US region).
 * aionflow: remove the crypto payout option (recommended).
+
+## 6. Whole portfolio — finish priority (recommendation 15 Oct)
+
+Status lines are the last known state; the week-2 domain check confirms each one.
+
+| Tier | Projects | Why | Action |
+|---|---|---|---|
+| **1 — Focus** | SovereignBaaS, SovereignSQL, AeroBaaS (+ **Gasat merged in**, + Amber Shield Scan as a feature) | growing EU sovereign market; one stack, one licence service; Gasat is the same idea (rebranded Appwrite for regulated clients) | daily 07:00–12:00 |
+| **2 — Finish & sell (small blockers)** | TemplateAI · Claritas (Stripe key, `/blog` 404) · cineticgenfonts (credits webhook 401) · SplatStudio (verify checkout) · Formula Jewelry (verify billing) · Certus (cross-domain cookie) | almost done, Stripe mostly wired; each needs 0.5–1 day | one per afternoon slot, after 18 Oct |
+| **3 — Keep running, low effort** | FamilyWhole backend + CyberArt + VitreousLab (one shop system) · Nordic AI (Firestore role rule bug) | live products; fix bugs, no new features | monthly check |
+| **4 — Merge** | IDE ascodex + ASCodex + OpenCode PC Assistant → one "AI builder for SovereignBaaS"; AtlantGen + Aura Amber → migration service of SovereignBaaS; Amber Shield + SecOps Core → one security product | overlapping products, very strong competitors when alone | month 3+ |
+| **5 — Pause** | Plinth Studio, Vox Aeterna (strong, 204 tests — revisit for EU accessibility market), TicketWhole, 3D Studio, others | no capacity now | revisit in 3 months |
