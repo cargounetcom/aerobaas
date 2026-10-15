@@ -29,9 +29,10 @@ Lessons: new Supabase auth keys — Edge Functions need `SUPABASE_PUBLISHABLE_KE
 2. **Pay connector (1 h):** review `aionflow`; plan: Stripe checkout + verified webhook (idempotent) → licensing keys/credits → AeroBaaS credits top-up; tests.
 3. **Contracts + SDK (2 h):** `sovereign-contracts` with OpenAPI for the admin API; generate `@sovereign/sdk` (TypeScript); CI test against a real AeroBaaS.
 4. **Security page (rest of day):** Trivy scan results + last backup + restore test in the admin, for SovereignBaaS and SovereignSQL.
-5. **Next:** Import connector step 1 (Prisma/SQL → SovereignSQL), AeroBaaS Phase 2b (AI), `engine: supabase` admin adapter, OpenTofu "new client".
+5. **Restore command (before any real data moves):** `sovereignbaas restore` / `sovereignsql restore` from a backup folder + CI test (backup → wipe → restore → data back). Also a WSL2 install check if the PC run shows problems.
+6. **Next:** Import connector step 1 (Prisma/SQL → SovereignSQL), AeroBaaS Phase 2b (AI), `engine: supabase` admin adapter, OpenTofu "new client".
 
-Owner: choose and order the server (Netcup RS 2000 + RS 1000 recommended), DNS records, Storage Box; push `aionflow`; choose contracts repo vs folder; open Agent keys on Railway; Hetzner installer test.
+Owner: **no server rental for now** — run on own PC (WSL2 Ubuntu 24.04, `--domain localhost`, one product at a time) for 1–2 weeks; later Netcup RS 2000 + RS 1000; push `aionflow`; choose contracts repo vs folder; open Agent keys on Railway; Hetzner installer test.
 
 ## 14 Oct 2026
 
