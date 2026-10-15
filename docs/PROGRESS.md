@@ -26,7 +26,7 @@ Lessons: new Supabase auth keys — Edge Functions need `SUPABASE_PUBLISHABLE_KE
 
 ### Open
 * SovereignSQL: realtime health endpoint returns 403 (warning only) → replace with a real WebSocket subscription test.
-* `aionflow` (pay connector) is only on the owner's PC: push to GitHub or attach a ZIP (no `.env`), then review.
+* `aionflow` (pay connector): pushed by the owner to private `cargounetcom/aionflow` (15 Oct 14:25; Rust/Axum core, Hyperswitch, 4 bots, MCP). History scanned: no real secrets, only placeholder `.env` examples. Review on 16 Oct.
 * Decision needed: `sovereign-contracts` as its own repo or a folder in `aerobaas` first.
 * From 14 Oct, still open: Agent keys check on Railway, real agent connection, Dependabot list, Phase 2b (AI), Functions page.
 
@@ -71,7 +71,7 @@ Known, separate: 8 desktop-app tests in `ideascodex-web` already failed on main 
 | 16:00–17:00 | Claude | `sovereignbaas restore` command + CI (backup → wipe → restore → data back) | CI green |
 | 17:00–17:30 | Both | Notes + plan for 17 Oct | PROGRESS updated |
 
-Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), and the `aionflow` repo (push to GitHub or ZIP without `.env`).
+Owner decisions needed tomorrow: **prices** for Starter / Pro / Studio (per month), (`aionflow` is on GitHub now).
 Later (17 Oct+): Security page in the admin, pay connector (`aionflow`), contracts + SDK, installer hint `--registry-token` on unauthorized pulls, the 8 old desktop-app tests.
 
 ## 14 Oct 2026
