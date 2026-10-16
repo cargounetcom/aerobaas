@@ -2,6 +2,20 @@
 
 Newest first. One entry per working day: what was done (with proof), what is open, and the plan for the next day.
 
+## 16 Oct 2026
+
+### Morning (07:00–) — SovereignBaaS block
+| Area | Result | Proof |
+|---|---|---|
+| Domains | `license.sovereignbaas.eu` verified, certificate valid; `sovereignbaas.eu` works; `www` still not set in Namecheap | Railway domain status 07:01 |
+| **Licensing bug fixed** | A monthly renewal revoked the customer's key and minted a new one → a paying client's server would have stopped 3 days after paying. Now a renewal keeps the key and only extends it; keys are per product (SOVB/SQLB on the same plan = two keys); first key is e-mailed | billing tests 52/52 (5 new); pushed `ideascodex-web` 42237c8, deploying on Railway |
+| Stripe per product | `STRIPE_PRICE_<PREFIX>_<PLAN>` (e.g. `STRIPE_PRICE_SOVB_PRO`); other products never fall back to the IDE price; missing price → 503 naming the setting | test with a stubbed Stripe API |
+| SovereignBaaS installer | branch `settings-restore` (on `paid-licence`): licence server `license.sovereignbaas.eu`; `--console-emails` (default owner), `--workers-per-core`, `--function-cpus/-memory`, `--db-cpus/-memory`, kept by `update`; **`sovereignbaas restore <dir> [--with-config]`** (safety backup first; PostgreSQL/MariaDB/MongoDB + VectorsDB/DocumentsDB + files); backup folders named to the second | syntax + shellcheck clean; CI steps written — **not run: GitHub Actions blocked by billing** |
+| SovereignSQL licence | branch `paid-licence`: `SQLB-` key required, hourly check, stop after 3 days unpaid + expired page, `up` refused, `license status/refresh` | refusals and saved-key re-run tested locally against the test double; CI licence job written — not run (billing) |
+
+Blocked on the owner: GitHub billing (all CI), `www` DNS, prices for SOVB Starter/Pro/Studio, Resend sender domain for licence e-mails (today they go from `mail.ascodex.com`, which Resend reported as unverified).
+Merges waiting for green CI: sovereign-admin `paid-licence` + `settings-restore`, SovereignSQL `paid-licence`, sovereign-schema CI.
+
 ## 15 Oct 2026
 
 ### Done
