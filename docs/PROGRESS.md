@@ -13,6 +13,10 @@ Newest first. One entry per working day: what was done (with proof), what is ope
 | SovereignBaaS installer | branch `settings-restore` (on `paid-licence`): licence server `license.sovereignbaas.eu`; `--console-emails` (default owner), `--workers-per-core`, `--function-cpus/-memory`, `--db-cpus/-memory`, kept by `update`; **`sovereignbaas restore <dir> [--with-config]`** (safety backup first; PostgreSQL/MariaDB/MongoDB + VectorsDB/DocumentsDB + files); backup folders named to the second | syntax + shellcheck clean; CI steps written — **not run: GitHub Actions blocked by billing** |
 | SovereignSQL licence | branch `paid-licence`: `SQLB-` key required, hourly check, stop after 3 days unpaid + expired page, `up` refused, `license status/refresh` | refusals and saved-key re-run tested locally against the test double; CI licence job written — not run (billing) |
 
+| Website | Comparison page `compare.html` (vs vendor clouds and self-hosting; only CI-proven features; dated sources) + footer link; canonical address now `https://sovereignbaas.eu`; phone layout checked (no side-scroll at 390 px) | sovereign-admin `abbb97d`, `bc827ba` (website deploys from main) |
+
+Note for prices: the website already shows **Lite €149/month, Enterprise from €500/month** (+ services: install €2,500, support €300, SLA €1,000, migration €1,500 …) from `landing/site.config.json`, while licence keys use tiers Starter/Pro/Studio → owner to confirm the mapping and amounts before Stripe prices are created.
+
 Blocked on the owner: GitHub billing (all CI), `www` DNS, prices for SOVB Starter/Pro/Studio, Resend sender domain for licence e-mails (today they go from `mail.ascodex.com`, which Resend reported as unverified).
 Merges waiting for green CI: sovereign-admin `paid-licence` + `settings-restore`, SovereignSQL `paid-licence`, sovereign-schema CI.
 
